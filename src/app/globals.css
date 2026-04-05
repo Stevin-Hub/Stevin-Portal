@@ -1,26 +1,86 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+/* ── Light theme (default for clients — clean, professional) ── */
+:root,
+.light {
+  --background: #fafafa;
+  --foreground: #0a0a0b;
+  --card: #ffffff;
+  --card-hover: #f4f4f5;
+  --border: #e4e4e7;
+  --border-subtle: #f0f0f2;
+  --muted: #a1a1aa;
+  --muted-foreground: #71717a;
+  --accent: #2563eb;
+  --accent-light: #dbeafe;
+  --accent-muted: #1d4ed8;
+  --success: #16a34a;
+  --success-light: #dcfce7;
+  --warning: #d97706;
+  --warning-light: #fef3c7;
+  --danger: #dc2626;
+  --danger-light: #fee2e2;
+}
+
+/* ── Dark theme ──────────────────────────────────────────────── */
+.dark {
+  --background: #0a0a0b;
+  --foreground: #fafafa;
+  --card: #111113;
+  --card-hover: #18181b;
+  --border: #27272a;
+  --border-subtle: #1e1e21;
+  --muted: #71717a;
+  --muted-foreground: #a1a1aa;
+  --accent: #3b82f6;
+  --accent-light: #1e3a5f;
+  --accent-muted: #1d4ed8;
+  --success: #22c55e;
+  --success-light: #052e16;
+  --warning: #f59e0b;
+  --warning-light: #451a03;
+  --danger: #ef4444;
+  --danger-light: #450a0a;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-hover: var(--card-hover);
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-light: var(--accent-light);
+  --color-accent-muted: var(--accent-muted);
+  --color-success: var(--success);
+  --color-success-light: var(--success-light);
+  --color-warning: var(--warning);
+  --color-warning-light: var(--warning-light);
+  --color-danger: var(--danger);
+  --color-danger-light: var(--danger-light);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html, body {
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+/* ── Scrollbar ──────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+.dark ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
+.light ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 3px; }
+
+::selection { background: rgba(37, 99, 235, 0.2); }
