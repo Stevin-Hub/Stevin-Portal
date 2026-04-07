@@ -1,10 +1,11 @@
 /**
- * Portal auth client — JWT-based (NOT Supabase Auth).
- * Tokens stored in localStorage, attached to every API call.
+ * Portal auth client — Supabase Auth (synced with Desk).
+ * Migrated from custom JWT to Supabase for single auth system.
+ * Function signatures preserved for backward compatibility.
  */
 
-const TOKEN_KEY = "stevin-portal-token";
-const USER_KEY = "stevin-portal-user";
+import { createClient } from "./supabase-browser";
+
 const CLIENT_KEY = "stevin-portal-client";
 
 export interface PortalUser {
@@ -21,15 +22,35 @@ export interface PortalClient {
 }
 
 export function getToken(): string | null {
+  // Synchronous fallback — check localStorage for cached token
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+  const raw = localStorage.getItem("sb-rhxhhgexinfjbdtdmgja-auth-token");
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed?.access_token || null;
+  } catch {
+    return null;
+  }
 }
 
 export function getUser(): PortalUser | null {
   if (typeof window === "undefined") return null;
-  const raw = localStorage.getItem(USER_KEY);
+  const raw = localStorage.getItem("sb-rhxhhgexinfjbdtdmgja-auth-token");
   if (!raw) return null;
-  try { return JSON.parse(raw); } catch { return null; }
+  try {
+    const parsed = JSON.parse(raw);
+    const user = parsed?.user;
+    if (!user) return null;
+    return {
+      id: user.id,
+      email: user.email || "",
+      displayName: user.user_metadata?.full_name || user.user_metadata?.name || null,
+      role: user.role || "authenticated",
+    };
+  } catch {
+    return null;
+  }
 }
 
 export function getClient(): PortalClient | null {
@@ -39,15 +60,14 @@ export function getClient(): PortalClient | null {
   try { return JSON.parse(raw); } catch { return null; }
 }
 
-export function setAuth(token: string, user: PortalUser, client: PortalClient | null) {
-  localStorage.setItem(TOKEN_KEY, token);
-  localStorage.setItem(USER_KEY, JSON.stringify(user));
+export function setAuth(_token: string, user: PortalUser, client: PortalClient | null) {
+  // Token is managed by Supabase — only store client info
   if (client) localStorage.setItem(CLIENT_KEY, JSON.stringify(client));
 }
 
 export function clearAuth() {
-  localStorage.removeItem(TOKEN_KEY);
-  localStorage.removeItem(USER_KEY);
+  const supabase = createClient();
+  supabase.auth.signOut();
   localStorage.removeItem(CLIENT_KEY);
 }
 
@@ -55,17 +75,8 @@ export function isLoggedIn(): boolean {
   return !!getToken();
 }
 
-/**
- * Check if current session is a consultant impersonation.
- * Decodes JWT payload (no verification — that's server-side).
- */
 export function isImpersonating(): boolean {
-  const token = getToken();
-  if (!token) return false;
-  try {
-    const payload = JSON.parse(atob(token.split(".")[1]));
-    return payload.impersonate === true;
-  } catch {
-    return false;
-  }
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.has("_t");
 }

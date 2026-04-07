@@ -1,9 +1,9 @@
 /**
  * Portal API client — talks to hub.stevin.ai/api/portal/*
- * Uses JWT from localStorage (NOT Supabase session).
+ * Now uses Supabase Auth tokens (synced with Desk).
  */
 
-import { getToken, clearAuth } from "./auth";
+import { createClient } from "./supabase-browser";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://hub.stevin.ai";
 
@@ -11,7 +11,9 @@ export async function portalFetch<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
-  const token = getToken();
+  const supabase = createClient();
+  const { data: { session } } = await supabase.auth.getSession();
+  const token = session?.access_token;
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -24,8 +26,7 @@ export async function portalFetch<T>(
   });
 
   if (res.status === 401) {
-    // Token expired or invalid — force re-login
-    clearAuth();
+    await supabase.auth.signOut();
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
