@@ -48,10 +48,26 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
   useEffect(() => {
     const client = getClient();
-    const user = getUser();
+    let user = getUser();
+
+    // If no user from legacy auth, check Supabase session
+    if (!user) {
+      import("@/lib/supabase-browser").then(({ createClient }) => {
+        const supabase = createClient();
+        supabase.auth.getSession().then(({ data }) => {
+          if (data.session?.user) {
+            const u = data.session.user;
+            setUserEmail(u.email || "");
+          } else {
+            router.replace("/login");
+          }
+        });
+      });
+    } else {
+      setUserEmail(user.email);
+    }
+
     if (client) setClientName(client.name);
-    if (user) setUserEmail(user.email);
-    if (!user) router.replace("/login");
     setImpersonating(isImpersonating());
 
     // Check terms acceptance (skip for impersonation)
