@@ -1,46 +1,56 @@
 @import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
 
-/* ── Light theme (default for clients — clean, professional) ── */
+/* ═══════════════════════════════════════════════════════════
+   STEVIN PORTAL — Client Dashboard
+   Synchronized with Stevin Desk Sovereign Blueprint
+   ═══════════════════════════════════════════════════════════ */
+
 :root,
-.light {
-  --background: #fafafa;
-  --foreground: #0a0a0b;
-  --card: #ffffff;
-  --card-hover: #f4f4f5;
-  --border: #e4e4e7;
-  --border-subtle: #f0f0f2;
-  --muted: #a1a1aa;
-  --muted-foreground: #71717a;
-  --accent: #2563eb;
-  --accent-light: #dbeafe;
-  --accent-muted: #1d4ed8;
-  --success: #16a34a;
-  --success-light: #dcfce7;
-  --warning: #d97706;
-  --warning-light: #fef3c7;
-  --danger: #dc2626;
-  --danger-light: #fee2e2;
-}
-
-/* ── Dark theme ──────────────────────────────────────────────── */
 .dark {
-  --background: #0a0a0b;
-  --foreground: #fafafa;
-  --card: #111113;
-  --card-hover: #18181b;
-  --border: #27272a;
-  --border-subtle: #1e1e21;
-  --muted: #71717a;
-  --muted-foreground: #a1a1aa;
-  --accent: #3b82f6;
+  --background: #060d18;
+  --foreground: #ffffff;
+  --card: #0d1a2d;
+  --card-hover: #122444;
+  --border: rgba(255,255,255,0.08);
+  --border-subtle: rgba(255,255,255,0.04);
+  --muted: #64748b;
+  --muted-foreground: #94a3b8;
+  --accent: #3D8EFF;
   --accent-light: #1e3a5f;
-  --accent-muted: #1d4ed8;
-  --success: #22c55e;
+  --accent-muted: #2B7AEE;
+  --teal: #00D4A0;
+  --teal-dark: #00B889;
+  --pink: #F4216A;
+  --success: #00D4A0;
   --success-light: #052e16;
   --warning: #f59e0b;
   --warning-light: #451a03;
-  --danger: #ef4444;
+  --danger: #F4216A;
   --danger-light: #450a0a;
+}
+
+.light {
+  --background: #f0f0f0;
+  --foreground: #0A1628;
+  --card: #ffffff;
+  --card-hover: #f8f8f8;
+  --border: rgba(0,0,0,0.08);
+  --border-subtle: rgba(0,0,0,0.04);
+  --muted: #e2e8f0;
+  --muted-foreground: #475569;
+  --accent: #3D8EFF;
+  --accent-light: #dbeafe;
+  --accent-muted: #2B7AEE;
+  --teal: #00B889;
+  --teal-dark: #00A07A;
+  --pink: #F4216A;
+  --success: #00B889;
+  --success-light: #dcfce7;
+  --warning: #d97706;
+  --warning-light: #fef3c7;
+  --danger: #F4216A;
+  --danger-light: #fee2e2;
 }
 
 @theme inline {
@@ -55,6 +65,9 @@
   --color-accent: var(--accent);
   --color-accent-light: var(--accent-light);
   --color-accent-muted: var(--accent-muted);
+  --color-teal: var(--teal);
+  --color-teal-dark: var(--teal-dark);
+  --color-pink: var(--pink);
   --color-success: var(--success);
   --color-success-light: var(--success-light);
   --color-warning: var(--warning);
@@ -62,7 +75,7 @@
   --color-danger: var(--danger);
   --color-danger-light: var(--danger-light);
   --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-mono: "JetBrains Mono", var(--font-geist-mono);
 }
 
 html, body {
@@ -73,14 +86,36 @@ html, body {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
-  transition: background-color 0.2s ease, color 0.2s ease;
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* ── Scrollbar ──────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 6px; height: 6px; }
-::-webkit-scrollbar-track { background: transparent; }
-.dark ::-webkit-scrollbar-thumb { background: #27272a; border-radius: 3px; }
-.light ::-webkit-scrollbar-thumb { background: #d4d4d8; border-radius: 3px; }
+/* No shadows, tight radii — Sovereign Blueprint */
+.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl {
+  box-shadow: none !important;
+}
 
-::selection { background: rgba(37, 99, 235, 0.2); }
+.rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-lg {
+  border-radius: 4px !important;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 1px; }
+
+::selection { background: rgba(61, 142, 255, 0.2); }
+
+*:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+button, a, input, select, textarea {
+  transition: all 0.1s ease;
+}
+
+.dark input[type="date"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+}
