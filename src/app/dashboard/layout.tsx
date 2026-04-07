@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import { clearAuth, getClient, getUser, isImpersonating } from "@/lib/auth";
+import { createClient as createSupabaseClient } from "@/lib/supabase-browser";
 import { useTheme } from "@/lib/theme";
 import { useState, useEffect } from "react";
 import {
@@ -52,16 +53,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     // If no user from legacy auth, check Supabase session
     if (!user) {
-      import("@/lib/supabase-browser").then(({ createClient }) => {
-        const supabase = createClient();
-        supabase.auth.getSession().then(({ data }) => {
-          if (data.session?.user) {
-            const u = data.session.user;
-            setUserEmail(u.email || "");
-          } else {
-            router.replace("/login");
-          }
-        });
+      const supabase = createSupabaseClient();
+      supabase.auth.getSession().then(({ data: { session } }: { data: { session: { user: { email: string | null } } | null } }) => {
+        if (session?.user) {
+          setUserEmail(session.user.email ?? "");
+        } else {
+          router.replace("/login");
+        }
       });
     } else {
       setUserEmail(user.email);
