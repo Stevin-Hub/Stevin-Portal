@@ -1,37 +1,51 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 
 export default function AuthCallbackPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
 
   useEffect(() => {
     const supabase = createClient();
+    const code = searchParams.get("code");
 
-    supabase.auth.onAuthStateChange((event) => {
-      if (event === "SIGNED_IN") {
-        router.push("/dashboard");
-      }
-    });
-
-    // Handle the OAuth callback
-    const hash = window.location.hash;
-    if (hash) {
-      // Supabase handles the hash automatically
-      setTimeout(() => router.push("/dashboard"), 1000);
-    } else {
-      // Check if already signed in
-      supabase.auth.getSession().then(({ data }) => {
-        if (data.session) {
-          router.push("/dashboard");
-        } else {
+    if (code) {
+      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
+        if (error) {
+          console.error("Auth error:", error.message);
           router.push("/login");
+        } else {
+          router.push("/dashboard");
         }
       });
+    } else {
+      // No code — check hash (implicit flow) or existing session
+      const hash = window.location.hash;
+      if (hash && hash.includes("access_token")) {
+        // Supabase handles hash automatically, wait for it
+        setTimeout(() => {
+          supabase.auth.getSession().then(({ data }) => {
+            if (data.session) {
+              router.push("/dashboard");
+            } else {
+              router.push("/login");
+            }
+          });
+        }, 500);
+      } else {
+        supabase.auth.getSession().then(({ data }) => {
+          if (data.session) {
+            router.push("/dashboard");
+          } else {
+            router.push("/login");
+          }
+        });
+      }
     }
-  }, [router]);
+  }, [router, searchParams]);
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
