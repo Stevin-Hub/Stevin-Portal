@@ -9,27 +9,26 @@ function CallbackHandler() {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    const supabase = createClient();
-    const code = searchParams.get("code");
+    async function handle() {
+      const supabase = createClient();
+      const code = searchParams.get("code");
 
-    if (code) {
-      supabase.auth.exchangeCodeForSession(code).then((result) => {
+      if (code) {
+        const result = await supabase.auth.exchangeCodeForSession(code);
         if (result.error) {
-          console.error("Auth error:", result.error.message);
           router.push("/login");
-        } else {
-          router.push("/dashboard");
+          return;
         }
-      });
-    } else {
-      supabase.auth.getSession().then(({ data }) => {
-        if (data.session) {
-          router.push("/dashboard");
-        } else {
-          router.push("/login");
-        }
-      });
+      }
+
+      const session = await supabase.auth.getSession();
+      if (session.data.session) {
+        router.push("/dashboard");
+      } else {
+        router.push("/login");
+      }
     }
+    handle();
   }, [router, searchParams]);
 
   return null;
