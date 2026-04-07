@@ -27,7 +27,7 @@ export function proxy(request: NextRequest) {
   response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' https:; connect-src 'self' https://hub.stevin.ai;",
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' https:; connect-src 'self' https://hub.stevin.ai https://*.supabase.co https://accounts.google.com;",
   );
 
   return response;
