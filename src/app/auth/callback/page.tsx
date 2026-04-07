@@ -13,9 +13,9 @@ function CallbackHandler() {
     const code = searchParams.get("code");
 
     if (code) {
-      supabase.auth.exchangeCodeForSession(code).then(({ error }) => {
-        if (error) {
-          console.error("Auth error:", error.message);
+      supabase.auth.exchangeCodeForSession(code).then((result) => {
+        if (result.error) {
+          console.error("Auth error:", result.error.message);
           router.push("/login");
         } else {
           router.push("/dashboard");
