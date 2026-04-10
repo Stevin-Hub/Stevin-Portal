@@ -12,10 +12,15 @@ export async function portalFetch<T>(
   path: string,
   options?: RequestInit,
 ): Promise<T> {
-  const supabase = createClient();
-  const { data: { session } } = await supabase.auth.getSession();
-  // Use Supabase session token (Google OAuth) or Portal JWT (magic link)
-  const token = session?.access_token || getToken();
+  // Check portal JWT first (fast, sync) — skip Supabase if we have one
+  let token = getToken();
+
+  // If no portal token, try Supabase session (Google OAuth flow)
+  if (!token || token === "") {
+    const supabase = createClient();
+    const { data: { session } } = await supabase.auth.getSession();
+    token = session?.access_token || null;
+  }
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -28,7 +33,9 @@ export async function portalFetch<T>(
   });
 
   if (res.status === 401) {
-    await supabase.auth.signOut();
+    // Clear all auth state and redirect to login
+    const { clearAuth } = await import("./auth");
+    clearAuth();
     if (typeof window !== "undefined") {
       window.location.href = "/login";
     }
