@@ -58,9 +58,10 @@ export default function TermsModal({ onAccepted }: TermsModalProps) {
             <div>
               <p className="font-medium text-foreground mb-1">2. Gebruik van AI Chat</p>
               <p>
-                De AI-assistent geeft inzichten op basis van je campagnedata. Deze adviezen zijn
+                De AI-assistent geeft inzichten op basis van je campagnedata. Deze adviezen zijn uitsluitend
                 informatief en vormen geen garantie op specifieke resultaten. Je consultant blijft
-                verantwoordelijk voor de uitvoering van je campagnestrategie.
+                verantwoordelijk voor de uitvoering van je campagnestrategie. Stevin.AI is niet aansprakelijk
+                voor beslissingen genomen op basis van AI-gegenereerde inzichten.
               </p>
             </div>
 
@@ -69,16 +70,21 @@ export default function TermsModal({ onAccepted }: TermsModalProps) {
               <p>
                 Stevin.AI verwerkt campagne- en bedrijfsgegevens conform de AVG. Data wordt opgeslagen
                 binnen de EU en uitsluitend gebruikt voor het leveren van onze diensten. We delen je
-                gegevens niet met derden zonder je toestemming.
+                gegevens niet met derden zonder je toestemming. Bij beeindiging van de samenwerking worden
+                je gegevens binnen 30 dagen verwijderd, tenzij wettelijk anders vereist. Je hebt te allen
+                tijde recht op inzage, correctie en verwijdering van je gegevens.
               </p>
             </div>
 
             <div>
               <p className="font-medium text-foreground mb-1">4. Aansprakelijkheid</p>
               <p>
-                Stevin.AI is niet aansprakelijk voor schade die voortvloeit uit onzorgvuldig gebruik van
-                het portaal, het delen van inloggegevens met derden, of beslissingen genomen op basis van
-                AI-gegenereerde inzichten zonder overleg met je consultant.
+                Het portaal wordt aangeboden op "as is"-basis zonder garantie op beschikbaarheid of
+                foutloze werking. Stevin.AI is niet aansprakelijk voor directe of indirecte schade die
+                voortvloeit uit het gebruik van het portaal, waaronder maar niet beperkt tot: onzorgvuldig
+                gebruik, het delen van inloggegevens met derden, technische storingen, dataverlies, of
+                beslissingen genomen op basis van getoonde data of AI-inzichten. De totale aansprakelijkheid
+                van Stevin.AI is te allen tijde beperkt tot het bedrag van de laatst betaalde maandfactuur.
               </p>
             </div>
 
@@ -87,25 +93,42 @@ export default function TermsModal({ onAccepted }: TermsModalProps) {
               <p>
                 Goedkeuring van budgetvoorstellen via het portaal is bindend. Zorg dat de juiste persoon
                 binnen je organisatie deze bevoegdheid heeft. Stevin.AI kan niet aansprakelijk worden
-                gesteld voor goedgekeurde budgetten.
+                gesteld voor goedgekeurde budgetten. Goedkeuringen kunnen niet achteraf worden ingetrokken
+                indien de uitvoering reeds is gestart.
               </p>
             </div>
 
             <div>
               <p className="font-medium text-foreground mb-1">6. Intellectueel eigendom</p>
               <p>
-                Content gegenereerd door de AI-assistent en rapportages in het portaal zijn bedoeld voor
-                intern gebruik. Verspreiding of publicatie zonder toestemming is niet toegestaan.
+                Het portaal, de onderliggende software, AI-modellen en gegenereerde rapportages zijn
+                eigendom van Stevin.AI. Content en rapportages zijn uitsluitend bedoeld voor intern
+                gebruik door de klant. Verspreiding, publicatie of reverse-engineering zonder
+                schriftelijke toestemming is niet toegestaan.
               </p>
             </div>
 
             <div>
-              <p className="font-medium text-foreground mb-1">7. Wijzigingen</p>
+              <p className="font-medium text-foreground mb-1">7. Beschikbaarheid</p>
               <p>
-                Stevin.AI behoudt het recht deze voorwaarden te wijzigen. Bij significante wijzigingen
-                word je hierover geïnformeerd via het portaal of per e-mail.
+                Stevin.AI streeft naar een hoge beschikbaarheid maar garandeert geen ononderbroken
+                toegang. Gepland onderhoud wordt vooraf gecommuniceerd. Stevin.AI is niet aansprakelijk
+                voor schade als gevolg van tijdelijke onbeschikbaarheid.
               </p>
             </div>
+
+            <div>
+              <p className="font-medium text-foreground mb-1">8. Wijzigingen</p>
+              <p>
+                Stevin.AI behoudt het recht deze voorwaarden te wijzigen. Bij significante wijzigingen
+                word je hierover geïnformeerd via het portaal of per e-mail. Voortgezet gebruik na
+                kennisgeving geldt als acceptatie.
+              </p>
+            </div>
+
+            <p className="text-xs text-muted pt-2 border-t border-border-subtle">
+              Stevin.AI is een handelsnaam van WPOT B.V. Op deze voorwaarden is Nederlands recht van toepassing.
+            </p>
           </div>
 
           <label className="flex items-start gap-3 mb-5 cursor-pointer">
