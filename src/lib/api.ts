@@ -4,6 +4,7 @@
  */
 
 import { createClient } from "./supabase-browser";
+import { getToken } from "./auth";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://hub.stevin.ai";
 
@@ -13,7 +14,8 @@ export async function portalFetch<T>(
 ): Promise<T> {
   const supabase = createClient();
   const { data: { session } } = await supabase.auth.getSession();
-  const token = session?.access_token;
+  // Use Supabase session token (Google OAuth) or Portal JWT (magic link)
+  const token = session?.access_token || getToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
