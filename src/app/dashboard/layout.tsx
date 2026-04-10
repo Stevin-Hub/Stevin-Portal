@@ -1,10 +1,11 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { clearAuth, getClient, getUser, isImpersonating } from "@/lib/auth";
+import { clearAuth, getClient, getUser, isImpersonating, isLoggedIn } from "@/lib/auth";
 import { createClient as createSupabaseClient } from "@/lib/supabase-browser";
 import { useTheme } from "@/lib/theme";
 import { useState, useEffect } from "react";
+import { FeedbackWidget } from "@/components/FeedbackWidget";
 import {
   LayoutDashboard,
   Image,
@@ -51,18 +52,19 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     const client = getClient();
     let user = getUser();
 
-    // If no user from legacy auth, check Supabase session
-    if (!user) {
+    if (user) {
+      setUserEmail(user.email);
+    } else {
+      // No portal user — check Supabase session (Google OAuth)
       const supabase = createSupabaseClient();
       supabase.auth.getSession().then(({ data: { session } }: { data: { session: { user: { email: string | null } } | null } }) => {
         if (session?.user) {
           setUserEmail(session.user.email ?? "");
-        } else {
+        } else if (!isLoggedIn()) {
+          // No portal token AND no Supabase session → redirect
           router.replace("/login");
         }
       });
-    } else {
-      setUserEmail(user.email);
     }
 
     if (client) setClientName(client.name);
@@ -213,6 +215,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Terms acceptance modal — blocks usage until accepted */}
       {showTerms && <TermsModal onAccepted={() => setShowTerms(false)} />}
+      <FeedbackWidget />
     </div>
   );
 }

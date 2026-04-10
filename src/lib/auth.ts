@@ -8,6 +8,7 @@ import { createClient } from "./supabase-browser";
 
 const CLIENT_KEY = "stevin-portal-client";
 const TOKEN_KEY = "stevin-portal-token";
+const USER_KEY = "stevin-portal-user";
 
 export interface PortalUser {
   id: string;
@@ -42,6 +43,14 @@ export function getToken(): string | null {
 
 export function getUser(): PortalUser | null {
   if (typeof window === "undefined") return null;
+
+  // Check Portal user first (magic link flow)
+  const portalUser = localStorage.getItem(USER_KEY);
+  if (portalUser) {
+    try { return JSON.parse(portalUser); } catch {}
+  }
+
+  // Fallback: Supabase session (Google OAuth flow)
   const raw = localStorage.getItem("sb-rhxhhgexinfjbdtdmgja-auth-token");
   if (!raw) return null;
   try {
@@ -67,8 +76,8 @@ export function getClient(): PortalClient | null {
 }
 
 export function setAuth(token: string, user: PortalUser, client: PortalClient | null) {
-  // Store Portal JWT (magic link flow)
   if (token) localStorage.setItem(TOKEN_KEY, token);
+  if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
   if (client) localStorage.setItem(CLIENT_KEY, JSON.stringify(client));
 }
 
@@ -77,6 +86,7 @@ export function clearAuth() {
   supabase.auth.signOut();
   localStorage.removeItem(CLIENT_KEY);
   localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem(USER_KEY);
 }
 
 export function isLoggedIn(): boolean {
