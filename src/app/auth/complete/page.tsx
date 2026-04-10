@@ -1,38 +1,24 @@
 "use client";
 
-import { Suspense, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
 import { setAuth } from "@/lib/auth";
 
-function CallbackHandler() {
+/**
+ * /auth/complete — Session is already established (code exchange done server-side).
+ * This page fetches portal info from Hub and stores it in localStorage.
+ */
+export default function AuthCompletePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
 
   useEffect(() => {
-    async function handle() {
+    async function hydrate() {
       const supabase = createClient();
-
-      // Handle OAuth code exchange (PKCE flow)
-      const code = searchParams.get("code");
-      if (code) {
-        const result = await supabase.auth.exchangeCodeForSession(code);
-        if (result.error) {
-          console.error("[Auth] Code exchange failed:", result.error.message);
-          router.push("/login?error=auth_failed");
-          return;
-        }
-      }
-
-      // Handle hash fragment (implicit flow fallback)
-      if (!code && typeof window !== "undefined" && window.location.hash) {
-        await supabase.auth.getSession();
-      }
-
-      // Get session and store client info
       const { data: { session } } = await supabase.auth.getSession();
+
       if (!session) {
-        console.error("[Auth] No session found after callback");
+        console.error("[Auth] No session found after OAuth complete");
         router.push("/login?error=no_session");
         return;
       }
@@ -60,22 +46,15 @@ function CallbackHandler() {
 
       router.push("/dashboard");
     }
-    handle();
-  }, [router, searchParams]);
+    hydrate();
+  }, [router]);
 
-  return null;
-}
-
-export default function AuthCallbackPage() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-background">
       <div className="text-center">
         <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin mx-auto mb-4" />
         <p className="text-sm text-muted-foreground">Even geduld...</p>
       </div>
-      <Suspense>
-        <CallbackHandler />
-      </Suspense>
     </div>
   );
 }
