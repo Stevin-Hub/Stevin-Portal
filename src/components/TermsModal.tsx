@@ -27,7 +27,7 @@ export default function TermsModal({ onAccepted }: TermsModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 z-[100] bg-black/60 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center p-4">
       <div className="bg-card border border-border rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-xl">
         <div className="p-6">
           <div className="flex items-center gap-3 mb-4">
