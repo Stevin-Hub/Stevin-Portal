@@ -3,6 +3,7 @@
 import { Suspense, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase-browser";
+import { setAuth } from "@/lib/auth";
 
 function CallbackHandler() {
   const router = useRouter();
@@ -21,30 +22,43 @@ function CallbackHandler() {
           router.push("/login?error=auth_failed");
           return;
         }
-        // Success — session is now stored, go to dashboard
-        router.push("/dashboard");
-        return;
       }
 
       // Handle hash fragment (implicit flow fallback)
-      if (typeof window !== "undefined" && window.location.hash) {
-        // Supabase might return tokens in the hash — let the client handle it
-        const { data, error } = await supabase.auth.getSession();
-        if (data.session) {
-          router.push("/dashboard");
-          return;
-        }
-        if (error) console.error("[Auth] Hash session error:", error.message);
+      if (!code && typeof window !== "undefined" && window.location.hash) {
+        await supabase.auth.getSession();
       }
 
-      // No code, no hash — check existing session
+      // Get session and store client info
       const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        router.push("/dashboard");
-      } else {
+      if (!session) {
         console.error("[Auth] No session found after callback");
         router.push("/login?error=no_session");
+        return;
       }
+
+      // Fetch client info from Hub and store in localStorage
+      try {
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://hub.stevin.ai";
+        const res = await fetch(`${API_URL}/api/portal/me`, {
+          headers: { Authorization: `Bearer ${session.access_token}` },
+        });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.client) {
+            setAuth(session.access_token, {
+              id: data.user?.id || session.user.id,
+              email: session.user.email || "",
+              displayName: data.user?.displayName || session.user.user_metadata?.full_name || null,
+              role: data.user?.role || "authenticated",
+            }, data.client);
+          }
+        }
+      } catch (err) {
+        console.error("[Auth] Failed to fetch client info:", err);
+      }
+
+      router.push("/dashboard");
     }
     handle();
   }, [router, searchParams]);

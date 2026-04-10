@@ -20,10 +20,14 @@ export default function LoginPage() {
 
     setLoading(true);
     try {
-      await portalFetch("/auth/magic-link", {
-        method: "POST",
-        body: JSON.stringify({ email: email.trim() }),
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim(),
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
+        },
       });
+      if (error) throw error;
       setSent(true);
     } catch {
       toast.error("Er ging iets mis. Probeer het opnieuw.");
