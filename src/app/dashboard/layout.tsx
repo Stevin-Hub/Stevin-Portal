@@ -32,7 +32,7 @@ const NAV_ITEMS = [
   { href: "/dashboard/budget", label: "Budget", icon: Wallet },
   { href: "/dashboard/chat", label: "Stevin Assistant", icon: MessageCircle },
   { href: "/dashboard/campaigns", label: "Campagnes", icon: Settings2 },
-  { href: "/dashboard/services", label: "Diensten", icon: Package },
+  { href: "/dashboard/services", label: "Diensten", icon: Package, hideForAgency: true },
   { href: "/dashboard/contact", label: "Contact", icon: Phone },
   { href: "/dashboard/account", label: "Account", icon: UserCircle },
 ];
@@ -44,6 +44,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [mobileOpen, setMobileOpen] = useState(false);
   const [clientName, setClientName] = useState("");
   const [userEmail, setUserEmail] = useState("");
+  const [orgType, setOrgType] = useState<string | null>(null);
   const [impersonating, setImpersonating] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
   const globalAlerts = useGlobalAlerts();
@@ -67,7 +68,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       });
     }
 
-    if (client) setClientName(client.name);
+    if (client) {
+      setClientName(client.name);
+      if (client.orgType) setOrgType(client.orgType);
+    }
     setImpersonating(isImpersonating());
 
     // Check terms acceptance (skip for impersonation)
@@ -111,7 +115,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         <nav className="flex-1 p-4 space-y-1">
-          {NAV_ITEMS.map((item) => {
+          {NAV_ITEMS
+            .filter((item) => !item.hideForAgency || (orgType !== "agency" && orgType !== "agency_client"))
+            .map((item) => {
             const isActive = pathname === item.href;
             return (
               <a
@@ -172,7 +178,9 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="lg:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setMobileOpen(false)}>
           <div className="absolute right-0 top-0 h-full w-64 bg-card border-l border-border p-4 pt-16" onClick={(e) => e.stopPropagation()}>
             <nav className="space-y-1">
-              {NAV_ITEMS.map((item) => {
+              {NAV_ITEMS
+                .filter((item) => !item.hideForAgency || (orgType !== "agency" && orgType !== "agency_client"))
+                .map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <a

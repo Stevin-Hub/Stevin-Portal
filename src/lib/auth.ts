@@ -21,6 +21,7 @@ export interface PortalClient {
   id: string;
   name: string;
   slug: string;
+  orgType?: string | null; // "agency" | "agency_client" | "direct_client" | "stevin"
 }
 
 export function getToken(): string | null {
