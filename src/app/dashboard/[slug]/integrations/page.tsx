@@ -131,6 +131,14 @@ const PLATFORMS: PlatformMeta[] = [
     iconColor: "#1A1A1A",
     enabled: false,
   },
+  {
+    id: "salesforce",
+    name: "Salesforce CRM",
+    description: "Leads, opportunities en pipeline-data uit Salesforce voor sales-attributie.",
+    iconName: "simple-icons:salesforce",
+    iconColor: "#00A1E0",
+    enabled: false,
+  },
 ];
 
 export default function IntegrationsPage() {
