@@ -91,6 +91,46 @@ const PLATFORMS: PlatformMeta[] = [
     iconColor: "#000000",
     enabled: true,
   },
+  {
+    id: "x",
+    name: "X (Twitter)",
+    description: "Advertentiedata en post-inzichten van X Ads.",
+    iconName: "simple-icons:x",
+    iconColor: "#000000",
+    enabled: true,
+  },
+  {
+    id: "snapchat",
+    name: "Snapchat",
+    description: "Advertentiedata en campagne-statistieken van Snapchat Ads Manager.",
+    iconName: "simple-icons:snapchat",
+    iconColor: "#FFFC00",
+    enabled: true,
+  },
+  {
+    id: "hubspot",
+    name: "HubSpot CRM",
+    description: "Contacten, deals en lifecycle-stages uit HubSpot voor lead-attributie.",
+    iconName: "simple-icons:hubspot",
+    iconColor: "#FF7A59",
+    enabled: false,
+  },
+  {
+    id: "teamleader",
+    name: "Teamleader CRM",
+    description: "Contacten, deals en activiteiten uit Teamleader Focus voor lead-attributie.",
+    iconName: "simple-icons:hubspot", // simple-icons heeft geen teamleader; placeholder, vervangen na deploy
+    iconColor: "#FFD400",
+    enabled: false,
+  },
+  {
+    id: "pipedrive",
+    name: "Pipedrive CRM",
+    description: "Deals, activiteiten en pipeline-fases uit Pipedrive.",
+    iconName: "simple-icons:hubspot", // simple-icons heeft geen pipedrive; placeholder, vervangen na deploy
+    iconColor: "#1A1A1A",
+    enabled: false,
+  },
 ];
 
 export default function IntegrationsPage() {
@@ -217,6 +257,12 @@ const MANUAL_PLATFORMS = [
     title: "Ticketing of booking",
     description: "FooEvents, Eventix, CM, Tixly, een eigen WordPress-plugin. We lezen alleen verkoopdata, geen klantgegevens.",
     examples: "FooEvents, Eventix, Tixly",
+  },
+  {
+    id: "other_crm",
+    title: "Andere CRM",
+    description: "Gebruik je een CRM die hierboven niet staat? Stuur een mail met de naam, dan koppelen we 'm in 1-2 werkdagen.",
+    examples: "Salesforce, Zoho, Microsoft Dynamics, ActiveCampaign, eigen systeem",
   },
 ];
 
