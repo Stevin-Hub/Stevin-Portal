@@ -49,7 +49,7 @@ const PLATFORMS: PlatformMeta[] = [
     description: "Campagne-data, zoekwoord-prestaties en kosten uit Google Ads.",
     iconName: "simple-icons:googleads",
     iconColor: "#4285F4",
-    enabled: false,
+    enabled: true,
   },
   {
     id: "google_analytics",
@@ -57,7 +57,7 @@ const PLATFORMS: PlatformMeta[] = [
     description: "Bezoekers, conversies en gebeurtenissen uit GA4.",
     iconName: "simple-icons:googleanalytics",
     iconColor: "#E37400",
-    enabled: false,
+    enabled: true,
   },
   {
     id: "google_search_console",
@@ -65,7 +65,7 @@ const PLATFORMS: PlatformMeta[] = [
     description: "Organische zoekprestaties, klikken, vertoningen en posities.",
     iconName: "simple-icons:googlesearchconsole",
     iconColor: "#458CF5",
-    enabled: false,
+    enabled: true,
   },
   {
     id: "google_tag_manager",
@@ -73,7 +73,7 @@ const PLATFORMS: PlatformMeta[] = [
     description: "Tag-configuratie en event-firing voor je site, zodat we kunnen zien welke conversies tellen.",
     iconName: "simple-icons:googletagmanager",
     iconColor: "#246FDB",
-    enabled: false,
+    enabled: true,
   },
   {
     id: "linkedin",
@@ -81,7 +81,7 @@ const PLATFORMS: PlatformMeta[] = [
     description: "Advertentiedata en pagina-inzichten van LinkedIn.",
     iconName: "simple-icons:linkedin",
     iconColor: "#0A66C2",
-    enabled: false,
+    enabled: true,
   },
   {
     id: "tiktok",
@@ -89,7 +89,7 @@ const PLATFORMS: PlatformMeta[] = [
     description: "Advertentiedata en pagina-inzichten van TikTok.",
     iconName: "simple-icons:tiktok",
     iconColor: "#000000",
-    enabled: false,
+    enabled: true,
   },
 ];
 
