@@ -24,57 +24,94 @@ interface PlatformMeta {
   name: string;
   description: string;
   iconBg: string;
-  iconLetter: string;
+  Icon: React.FC<{ className?: string }>;
   enabled: boolean;
 }
+
+// ── Brand SVG icons (paths from simple-icons, CC0) ──
+const MetaIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+    <path d="M12 2.04C6.5 2.04 2 6.53 2 12.06c0 5 3.66 9.15 8.44 9.9v-7H7.9v-2.9h2.54V9.85c0-2.51 1.49-3.89 3.78-3.89 1.09 0 2.23.19 2.23.19v2.47h-1.26c-1.24 0-1.63.77-1.63 1.56v1.88h2.78l-.45 2.9h-2.33v7a10 10 0 0 0 8.44-9.9c0-5.53-4.5-10.02-10-10.02z" />
+  </svg>
+);
+const GoogleAdsIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+    <path fill="#FBBC04" d="m7.4 2.55 7.07 12.24-4.4 2.55L3 5.1z" />
+    <path fill="#4285F4" d="M14.47 14.79 7.4 2.55 12 0l7.07 12.24z" />
+    <circle fill="#34A853" cx="6.4" cy="20.95" r="2.55" />
+    <path fill="#34A853" d="M19.07 12.24 12 24l4.4 2.55c.96-1.66 6.65-11.55 6.65-11.55l-4-2.76z" transform="translate(0 -3)" />
+  </svg>
+);
+const GA4Icon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+    <path fill="#F9AB00" d="M22.84 2.998v17.999a2.97 2.97 0 0 1-2.967 2.998 2.97 2.97 0 0 1-2.873-2.99V3.12C16.943 1.49 18.155.34 19.756.34c1.59 0 2.961 1.197 3.084 2.658z" />
+    <path fill="#E37400" d="M15.07 12c1.66 0 3 1.34 3 3s-1.34 3-3 3-3-1.34-3-3 1.34-3 3-3zm-7-9c-1.66 0-3 1.34-3 3v15c0 1.66 1.34 3 3 3s3-1.34 3-3V6c0-1.66-1.34-3-3-3z" opacity=".55" />
+  </svg>
+);
+const GSCIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+    <path fill="#34A853" d="M21.7 20.3 17 15.6a8 8 0 1 0-1.4 1.4l4.7 4.7a1 1 0 0 0 1.4-1.4zM10 16a6 6 0 1 1 0-12 6 6 0 0 1 0 12z" />
+    <circle fill="#4285F4" cx="10" cy="10" r="4" />
+  </svg>
+);
+const LinkedInIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+    <path d="M20.45 20.45h-3.55v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 1.45-2.14 2.95v5.66H9.36V9h3.41v1.56h.05c.47-.9 1.63-1.85 3.36-1.85 3.6 0 4.27 2.37 4.27 5.45zM5.34 7.43a2.06 2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56zM22.22 0H1.77C.79 0 0 .77 0 1.72v20.56C0 23.23.79 24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.72V1.72C24 .77 23.2 0 22.22 0z" />
+  </svg>
+);
+const TikTokIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} fill="currentColor" aria-hidden="true">
+    <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5.8 20.1a6.34 6.34 0 0 0 10.86-4.43V8.69a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1.84-.12z" />
+  </svg>
+);
 
 const PLATFORMS: PlatformMeta[] = [
   {
     id: "meta",
     name: "Meta (Facebook + Instagram)",
     description: "Advertentiedata, campagne-statistieken en pagina-inzichten van Meta Business Manager.",
-    iconBg: "bg-[#1877F2]",
-    iconLetter: "M",
+    iconBg: "bg-[#1877F2] text-white",
+    Icon: MetaIcon,
     enabled: true,
   },
   {
     id: "google_ads",
     name: "Google Ads",
     description: "Campagne-data, zoekwoord-prestaties en kosten uit Google Ads.",
-    iconBg: "bg-[#4285F4]",
-    iconLetter: "G",
+    iconBg: "bg-white border border-border",
+    Icon: GoogleAdsIcon,
     enabled: false, // toegevoegd in volgende ronde
   },
   {
     id: "google_analytics",
     name: "Google Analytics 4",
     description: "Bezoekers, conversies en gebeurtenissen uit GA4.",
-    iconBg: "bg-[#F9AB00]",
-    iconLetter: "A",
+    iconBg: "bg-white border border-border",
+    Icon: GA4Icon,
     enabled: false,
   },
   {
     id: "google_search_console",
     name: "Google Search Console",
     description: "Organische zoekprestaties, klikken, vertoningen en posities.",
-    iconBg: "bg-[#34A853]",
-    iconLetter: "S",
+    iconBg: "bg-white border border-border",
+    Icon: GSCIcon,
     enabled: false,
   },
   {
     id: "linkedin",
     name: "LinkedIn",
     description: "Advertentiedata en pagina-inzichten van LinkedIn.",
-    iconBg: "bg-[#0A66C2]",
-    iconLetter: "L",
+    iconBg: "bg-[#0A66C2] text-white",
+    Icon: LinkedInIcon,
     enabled: false,
   },
   {
     id: "tiktok",
     name: "TikTok",
     description: "Advertentiedata en pagina-inzichten van TikTok.",
-    iconBg: "bg-black",
-    iconLetter: "T",
+    iconBg: "bg-black text-white",
+    Icon: TikTokIcon,
     enabled: false,
   },
 ];
@@ -209,8 +246,8 @@ function PlatformCard({
   return (
     <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4">
       <div className="flex items-start gap-3">
-        <div className={`${platform.iconBg} text-white w-10 h-10 rounded-lg flex items-center justify-center font-bold text-sm flex-shrink-0`}>
-          {platform.iconLetter}
+        <div className={`${platform.iconBg} w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0`}>
+          <platform.Icon className="w-6 h-6" />
         </div>
         <div className="flex-1 min-w-0">
           <h3 className="font-semibold text-base leading-tight">{platform.name}</h3>
