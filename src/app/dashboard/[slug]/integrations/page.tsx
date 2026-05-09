@@ -222,10 +222,50 @@ export default function IntegrationsPage() {
         })}
       </div>
 
-      <p className="text-xs text-muted-foreground mt-8 max-w-2xl leading-relaxed">
-        Twee dingen koppelen we niet via een knop: je e-mail-marketing-tool en je ticketing- of bookingsysteem.
-        Daarvoor stuur je later een API-key door en activeren we 'm namens jou. Vraag je consultant.
+      <ManualConnectionsSection />
+    </div>
+  );
+}
+
+// ── Manual API-key sections (e-mail tool + ticketing) ──────────
+const MANUAL_PLATFORMS = [
+  {
+    id: "email",
+    title: "E-mail marketing tool",
+    description: "MailChimp, Mailblue, Spotler, Brevo, Klaviyo of iets anders. We gebruiken een read-only API-key om openings, kliks en uitschrijvingen te lezen.",
+    examples: "Mailblue, MailChimp, Spotler",
+  },
+  {
+    id: "ticketing",
+    title: "Ticketing of booking",
+    description: "FooEvents, Eventix, CM, Tixly, een eigen WordPress-plugin. We lezen alleen verkoopdata, geen klantgegevens.",
+    examples: "FooEvents, Eventix, Tixly",
+  },
+];
+
+function ManualConnectionsSection() {
+  return (
+    <div className="mt-12 pt-8 border-t border-border">
+      <h2 className="text-lg font-semibold mb-2">Niet via een knop</h2>
+      <p className="text-sm text-muted-foreground mb-6 max-w-2xl leading-relaxed">
+        Twee soorten tools koppelen we handmatig met een API-key: je e-mail-marketing-systeem en je ticketing- of
+        bookingplatform. Daarvoor sturen we je een korte instructie en activeren we de koppeling namens jou.
       </p>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        {MANUAL_PLATFORMS.map((p) => (
+          <div key={p.id} className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-3">
+            <h3 className="font-semibold text-base">{p.title}</h3>
+            <p className="text-xs text-muted-foreground leading-snug">{p.description}</p>
+            <p className="text-xs text-muted-foreground">Bijvoorbeeld: {p.examples}</p>
+            <a
+              href={`mailto:koen@stevin.ai?subject=API-key%20${encodeURIComponent(p.title)}`}
+              className="mt-auto px-4 py-2 text-sm font-medium border border-border bg-background text-foreground rounded-lg hover:bg-muted transition text-center"
+            >
+              Stuur ons een mail
+            </a>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
