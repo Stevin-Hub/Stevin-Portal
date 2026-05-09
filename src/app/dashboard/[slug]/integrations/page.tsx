@@ -64,6 +64,13 @@ const TikTokIcon = ({ className }: { className?: string }) => (
     <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-5.2 1.74 2.89 2.89 0 0 1 2.31-4.64 2.93 2.93 0 0 1 .88.13V9.4a6.84 6.84 0 0 0-1-.05A6.33 6.33 0 0 0 5.8 20.1a6.34 6.34 0 0 0 10.86-4.43V8.69a8.16 8.16 0 0 0 4.77 1.52v-3.4a4.85 4.85 0 0 1-1.84-.12z" />
   </svg>
 );
+const GTMIcon = ({ className }: { className?: string }) => (
+  <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+    <path fill="#8AB4F8" d="M12.32 2.97 21.04 11.7a2.5 2.5 0 0 1 0 3.55l-8.72 8.72a2.5 2.5 0 0 1-3.54 0L.06 15.25a2.5 2.5 0 0 1 0-3.55L8.78 2.97a2.5 2.5 0 0 1 3.54 0z" />
+    <path fill="#246FDB" d="M12.32 2.97 21.04 11.7a2.5 2.5 0 0 1 0 3.55l-2.43 2.43L7.79 6.85l1-.99a2.5 2.5 0 0 1 3.53 1.11z" />
+    <circle fill="#fff" cx="12" cy="13.45" r="2.5" />
+  </svg>
+);
 
 const PLATFORMS: PlatformMeta[] = [
   {
@@ -96,6 +103,14 @@ const PLATFORMS: PlatformMeta[] = [
     description: "Organische zoekprestaties, klikken, vertoningen en posities.",
     iconBg: "bg-white border border-border",
     Icon: GSCIcon,
+    enabled: false,
+  },
+  {
+    id: "google_tag_manager",
+    name: "Google Tag Manager",
+    description: "Tag-configuratie en event-firing voor je site, zodat we kunnen zien welke conversies tellen.",
+    iconBg: "bg-white border border-border",
+    Icon: GTMIcon,
     enabled: false,
   },
   {
