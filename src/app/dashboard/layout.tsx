@@ -32,7 +32,10 @@ const NAV_ITEMS = [
   { href: "/dashboard/budget", label: "Budget", icon: Wallet },
   { href: "/dashboard/chat", label: "Stevin Assistant", icon: MessageCircle },
   { href: "/dashboard/campaigns", label: "Campagnes", icon: Settings2 },
-  { href: "/dashboard/services", label: "Diensten", icon: Package, hideForAgency: true },
+  // {slug} wordt client-side ingevuld via clientSlug. Adminonly-flag toont 'm alleen voor admins.
+  { href: "/dashboard/__SLUG__/integrations", label: "Koppelingen", icon: Plug, adminOnly: true, slugSlot: true },
+  // Diensten verborgen — interne prijzen niet tonen aan klanten
+  // { href: "/dashboard/services", label: "Diensten", icon: Package, hideForAgency: true },
   { href: "/dashboard/contact", label: "Contact", icon: Phone },
   { href: "/dashboard/account", label: "Account", icon: UserCircle },
 ];
