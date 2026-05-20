@@ -21,6 +21,7 @@ import {
   Phone,
   UserCircle,
   Settings2,
+  Plug,
 } from "lucide-react";
 import TermsModal from "@/components/TermsModal";
 import GlobalAlertBanner, { useGlobalAlerts } from "@/components/GlobalAlertBanner";
@@ -35,7 +36,7 @@ const NAV_ITEMS = [
   // {slug} wordt client-side ingevuld via clientSlug. Adminonly-flag toont 'm alleen voor admins.
   { href: "/dashboard/__SLUG__/integrations", label: "Koppelingen", icon: Plug, adminOnly: true, slugSlot: true },
   // Diensten verborgen — interne prijzen niet tonen aan klanten
-  // { href: "/dashboard/services", label: "Diensten", icon: Package, hideForAgency: true },
+  // { href: "/dashboard/services", label: "Diensten", icon: Package, hideForAgency: true as const },
   { href: "/dashboard/contact", label: "Contact", icon: Phone },
   { href: "/dashboard/account", label: "Account", icon: UserCircle },
 ];
@@ -119,7 +120,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
         <nav className="flex-1 p-4 space-y-1">
           {NAV_ITEMS
-            .filter((item) => !item.hideForAgency || (orgType !== "agency" && orgType !== "agency_client"))
+            .filter((item) => !('hideForAgency' in item && item.hideForAgency) || (orgType !== "agency" && orgType !== "agency_client"))
             .map((item) => {
             const isActive = pathname === item.href;
             return (
@@ -182,7 +183,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <div className="absolute right-0 top-0 h-full w-64 bg-card border-l border-border p-4 pt-16" onClick={(e) => e.stopPropagation()}>
             <nav className="space-y-1">
               {NAV_ITEMS
-                .filter((item) => !item.hideForAgency || (orgType !== "agency" && orgType !== "agency_client"))
+                .filter((item) => !('hideForAgency' in item && item.hideForAgency) || (orgType !== "agency" && orgType !== "agency_client"))
                 .map((item) => {
                 const isActive = pathname === item.href;
                 return (
