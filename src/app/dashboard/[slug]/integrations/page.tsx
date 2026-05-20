@@ -89,7 +89,7 @@ const PLATFORMS: PlatformMeta[] = [
     description: "Advertentiedata en pagina-inzichten van TikTok.",
     iconName: "simple-icons:tiktok",
     iconColor: "#000000",
-    enabled: true,
+    enabled: false, // TIKTOK_APP_ID ontbreekt op server — tijdelijk uitgeschakeld
   },
   {
     id: "x",
