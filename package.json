@@ -1,7 +1,7 @@
 {
   "name": "stevin-portal",
   "version": "0.1.0",
-  "author": "Koen Hoogenboom <stevin@wpotgroup.com>",
+  "author": "Koen Hoogenboom <koen@stevin.ai>",
   "license": "UNLICENSED",
   "private": true,
   "scripts": {
