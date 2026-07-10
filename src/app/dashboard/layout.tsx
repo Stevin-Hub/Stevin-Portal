@@ -9,6 +9,7 @@ import {
   LayoutDashboard,
   Image,
   Wallet,
+  Sparkles,
   MessageCircle,
   LogOut,
   ShieldAlert,
@@ -24,6 +25,7 @@ const NAV_ITEMS = [
   { href: "/dashboard", label: "Overzicht", icon: LayoutDashboard },
   { href: "/dashboard/approvals", label: "Goedkeuringen", icon: Image },
   { href: "/dashboard/budget", label: "Budget", icon: Wallet },
+  { href: "/dashboard/brain", label: "Brain", icon: Sparkles },
   { href: "/dashboard/chat", label: "Vraag Stevin", icon: MessageCircle },
   // {slug} wordt client-side ingevuld via clientSlug. Adminonly-flag toont 'm alleen voor admins.
   { href: "/dashboard/__SLUG__/integrations", label: "Koppelingen", icon: Plug, adminOnly: true, slugSlot: true },
