@@ -1,17 +1,23 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Inter_Tight, JetBrains_Mono } from "next/font/google";
 import { ThemeProvider } from "@/lib/theme";
 import { Toaster } from "sonner";
 import "./globals.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+// Desk-canon: Inter Tight voor display/body, JetBrains Mono voor technisch.
+const interTight = Inter_Tight({ variable: "--font-inter-tight", subsets: ["latin"] });
+const jetbrainsMono = JetBrains_Mono({ variable: "--font-jetbrains-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Stevin.AI — Portaal",
   description: "Campagne-inzichten, budgetbeheer en Stevin Assistant",
   icons: {
-    icon: "/favicon.svg",
+    icon: [
+      { url: "/favicon.png", type: "image/png", sizes: "64x64" },
+    ],
+    apple: [
+      { url: "/apple-icon.png", type: "image/png", sizes: "64x64" },
+    ],
   },
   robots: {
     index: false,
@@ -22,15 +28,11 @@ export const metadata: Metadata = {
 const themeScript = `
 (function(){
   try {
-    var t = localStorage.getItem('stevin-portal-theme');
-    if (t === 'light' || t === 'dark') {
-      document.documentElement.classList.add(t);
-    } else if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-      document.documentElement.classList.add('dark');
-    } else {
-      document.documentElement.classList.add('light');
-    }
+    localStorage.setItem('stevin-portal-theme', 'light');
+    document.documentElement.classList.remove('dark');
+    document.documentElement.classList.add('light');
   } catch(e) {
+    document.documentElement.classList.remove('dark');
     document.documentElement.classList.add('light');
   }
 })();
@@ -40,7 +42,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html
       lang="nl"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      className={`${interTight.variable} ${jetbrainsMono.variable} h-full antialiased`}
       suppressHydrationWarning
     >
       <head>

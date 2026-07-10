@@ -141,6 +141,11 @@ const PLATFORMS: PlatformMeta[] = [
   },
 ];
 
+// End customers should not start provider OAuth themselves until the provider
+// apps are live for non-test users. Stevin activates these connections during
+// onboarding so customers never hit Google/Meta error pages.
+const CLIENT_SELF_SERVICE_CONNECT_ENABLED = false;
+
 export default function IntegrationsPage() {
   const params = useParams();
   const router = useRouter();
@@ -191,6 +196,10 @@ export default function IntegrationsPage() {
   }, [authState, fetchStatus]);
 
   async function handleConnect(platformId: string) {
+    if (!CLIENT_SELF_SERVICE_CONNECT_ENABLED) {
+      toast.message("Stevin activeert deze koppeling samen met je team.");
+      return;
+    }
     setLoadingPlatform(platformId);
     try {
       const data = await portalFetch<{ url: string }>(`/connect/${platformId}/url`);
@@ -225,8 +234,8 @@ export default function IntegrationsPage() {
       <header className="mb-8">
         <h1 className="text-2xl font-bold mb-2">Koppelingen</h1>
         <p className="text-muted-foreground text-sm leading-relaxed max-w-2xl">
-          Koppel je advertentie- en analytics-accounts aan Stevin. We slaan alleen de toegangscodes op die nodig zijn om je
-          campagne-data te lezen, geen wachtwoorden. Een koppeling kun je op elk moment intrekken vanuit het platform zelf.
+          Stevin activeert advertentie- en analytics-koppelingen samen met je team. Zo voorkomen we dat je op technische
+          Google- of Meta-schermen terechtkomt tijdens de onboarding.
         </p>
       </header>
 
@@ -350,6 +359,14 @@ function PlatformCard({
             className="flex-1 px-4 py-2 text-sm font-medium bg-muted text-muted-foreground rounded-lg cursor-not-allowed opacity-60"
           >
             Binnenkort
+          </button>
+        ) : !CLIENT_SELF_SERVICE_CONNECT_ENABLED ? (
+          <button
+            type="button"
+            disabled
+            className="flex-1 px-4 py-2 text-sm font-medium border border-border bg-background text-foreground rounded-lg cursor-default opacity-80"
+          >
+            {status === "connected" ? "Gekoppeld" : status === "broken" ? "Laat Stevin herstellen" : "Via Stevin"}
           </button>
         ) : status === "connected" ? (
           <button

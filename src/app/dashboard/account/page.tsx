@@ -78,20 +78,27 @@ function AccountContent() {
   const RoleIcon = role.icon;
 
   return (
-    <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold">Account</h1>
-        <p className="text-muted-foreground text-sm mt-1">Je profiel, pakket en gebruik</p>
-      </div>
+    <div className="space-y-7">
+      <header className="rounded-[36px] border border-border bg-card p-8 shadow-[0_20px_60px_rgba(31,41,51,0.05)]">
+        <p className="text-sm font-black uppercase tracking-[0.18em] text-muted-foreground">
+          {data.client?.name || "Stevin App"}
+        </p>
+        <h1 className="mt-3 text-[clamp(3rem,6vw,5.2rem)] font-black leading-none tracking-[-0.075em]">
+          Account
+        </h1>
+        <p className="mt-4 max-w-2xl text-[clamp(1.2rem,2vw,1.8rem)] leading-tight tracking-[-0.035em] text-muted-foreground">
+          Wie toegang heeft, wat gekoppeld is en waar afspraken vastliggen.
+        </p>
+      </header>
 
-      <div className="grid md:grid-cols-2 gap-6">
+      <div className="grid gap-6 xl:grid-cols-2">
         {/* Profile */}
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="rounded-[28px] border border-border bg-card p-7 shadow-[0_18px_45px_rgba(31,41,51,0.045)]">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-light">
               <User className="w-5 h-5 text-accent" />
             </div>
-            <h3 className="font-semibold">Profiel</h3>
+            <h3 className="text-xl font-black tracking-[-0.035em]">Profiel</h3>
           </div>
           <div className="space-y-3">
             <div>
@@ -122,12 +129,12 @@ function AccountContent() {
         </div>
 
         {/* Package */}
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="rounded-[28px] border border-border bg-card p-7 shadow-[0_18px_45px_rgba(31,41,51,0.045)]">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-light">
               <Package className="w-5 h-5 text-accent" />
             </div>
-            <h3 className="font-semibold">Pakket</h3>
+            <h3 className="text-xl font-black tracking-[-0.035em]">Pakket</h3>
           </div>
           {data.package ? (
             <div className="space-y-3">
@@ -156,29 +163,29 @@ function AccountContent() {
         </div>
 
         {/* Berichten deze maand */}
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="rounded-[28px] border border-border bg-card p-7 shadow-[0_18px_45px_rgba(31,41,51,0.045)]">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-light">
               <MessageCircle className="w-5 h-5 text-accent" />
             </div>
-            <h3 className="font-semibold">Berichten deze maand</h3>
+            <h3 className="text-xl font-black tracking-[-0.035em]">Vragen deze maand</h3>
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="bg-card-hover rounded-lg p-4 flex-1 text-center">
+            <div className="rounded-2xl bg-page p-5 flex-1 text-center">
               <p className="text-3xl font-bold text-accent">{data.tokenUsage.messages}</p>
-              <p className="text-sm text-muted-foreground mt-1">analyses via Stevin Assistant</p>
+              <p className="text-sm text-muted-foreground mt-1">vragen via Stevin</p>
             </div>
           </div>
         </div>
 
         {/* Terms */}
-        <div className="bg-card border border-border rounded-xl p-5">
+        <div className="rounded-[28px] border border-border bg-card p-7 shadow-[0_18px_45px_rgba(31,41,51,0.045)]">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-light">
               <ShieldCheck className="w-5 h-5 text-accent" />
             </div>
-            <h3 className="font-semibold">Voorwaarden</h3>
+            <h3 className="text-xl font-black tracking-[-0.035em]">Voorwaarden</h3>
           </div>
           <div className="flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${data.termsAccepted ? "bg-success" : "bg-warning"}`} />
@@ -190,16 +197,16 @@ function AccountContent() {
       </div>
 
       {/* Hoe werkt de Stevin Assistant? */}
-      <div className="mt-6 bg-card border border-border rounded-xl p-6">
+      <div className="rounded-[32px] border border-border bg-card p-7 shadow-[0_18px_45px_rgba(31,41,51,0.045)]">
         <div className="flex items-center gap-3 mb-5">
-          <div className="w-10 h-10 rounded-full bg-accent/10 flex items-center justify-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-light">
             <Lightbulb className="w-5 h-5 text-accent" />
           </div>
-          <h3 className="font-semibold text-lg">Hoe werkt Stevin Assistant?</h3>
+          <h3 className="text-2xl font-black tracking-[-0.045em]">Wat doet Stevin hier?</h3>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-4">
-          <div className="bg-card-hover rounded-lg p-4 flex gap-3">
+        <div className="grid gap-4 md:grid-cols-2">
+          <div className="flex gap-3 rounded-2xl bg-page p-5">
             <MessageCircle className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold mb-1">Stel je vragen in gewone taal</p>
@@ -209,17 +216,17 @@ function AccountContent() {
             </div>
           </div>
 
-          <div className="bg-card-hover rounded-lg p-4 flex gap-3">
+          <div className="flex gap-3 rounded-2xl bg-page p-5">
             <Search className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
             <div>
-              <p className="text-sm font-semibold mb-1">Jouw data-speurhond</p>
+              <p className="text-sm font-semibold mb-1">Alle feiten op een rij</p>
               <p className="text-sm text-muted-foreground">
-                Stevin analyseert 24/7 je advertenties en zet de feiten razendsnel op een rij, zodat jij altijd overzicht hebt.
+                Stevin zet campagne-, budget- en meetdata naast elkaar, zodat je ziet waar iets schuift.
               </p>
             </div>
           </div>
 
-          <div className="bg-card-hover rounded-lg p-4 flex gap-3">
+          <div className="flex gap-3 rounded-2xl bg-page p-5">
             <UserCheck className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold mb-1">Jouw specialist blijft aan het roer</p>
@@ -229,7 +236,7 @@ function AccountContent() {
             </div>
           </div>
 
-          <div className="bg-card-hover rounded-lg p-4 flex gap-3">
+          <div className="flex gap-3 rounded-2xl bg-page p-5">
             <Shield className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
             <div>
               <p className="text-sm font-semibold mb-1">100% Europese Privacy</p>

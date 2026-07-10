@@ -7,40 +7,17 @@
    ═══════════════════════════════════════════════════════════ */
 
 :root,
-.dark {
-  --background: #060d18;
-  --foreground: #ffffff;
-  --card: #0d1a2d;
-  --card-hover: #122444;
-  --border: rgba(255,255,255,0.08);
-  --border-subtle: rgba(255,255,255,0.04);
-  --muted: #64748b;
-  --muted-foreground: #94a3b8;
-  --accent: #3D8EFF;
-  --accent-light: #1e3a5f;
-  --accent-muted: #2B7AEE;
-  --teal: #00D4A0;
-  --teal-dark: #00B889;
-  --pink: #F4216A;
-  --success: #00D4A0;
-  --success-light: #052e16;
-  --warning: #f59e0b;
-  --warning-light: #451a03;
-  --danger: #F4216A;
-  --danger-light: #450a0a;
-}
-
 .light {
-  --background: #f0f0f0;
-  --foreground: #0A1628;
+  --background: #f7f8fa;
+  --foreground: #1f2933;
   --card: #ffffff;
-  --card-hover: #f8f8f8;
-  --border: rgba(0,0,0,0.08);
-  --border-subtle: rgba(0,0,0,0.04);
-  --muted: #e2e8f0;
-  --muted-foreground: #475569;
+  --card-hover: #fbfcfe;
+  --border: #d6dde8;
+  --border-subtle: #edf0f5;
+  --muted: #8190a3;
+  --muted-foreground: #6b7280;
   --accent: #3D8EFF;
-  --accent-light: #dbeafe;
+  --accent-light: #eaf3ff;
   --accent-muted: #2B7AEE;
   --teal: #00B889;
   --teal-dark: #00A07A;
@@ -51,6 +28,20 @@
   --warning-light: #fef3c7;
   --danger: #F4216A;
   --danger-light: #fee2e2;
+}
+
+.dark {
+  --background: #0A1628;
+  --foreground: #f3f4f6;
+  --card: #111827;
+  --card-hover: #16202f;
+  --border: #273244;
+  --border-subtle: #1d2735;
+  --muted: #94a3b8;
+  --muted-foreground: #94a3b8;
+  --accent: #3D8EFF;
+  --accent-light: #132a4d;
+  --accent-muted: #2B7AEE;
 }
 
 @theme inline {
@@ -74,8 +65,8 @@
   --color-warning-light: var(--warning-light);
   --color-danger: var(--danger);
   --color-danger-light: var(--danger-light);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: "JetBrains Mono", var(--font-geist-mono);
+  --font-sans: var(--font-inter-tight), "Inter Tight";
+  --font-mono: var(--font-jetbrains-mono), "JetBrains Mono";
 }
 
 html, body {
@@ -90,15 +81,6 @@ body {
   font-size: 14px;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-}
-
-/* No shadows, tight radii — Sovereign Blueprint */
-.shadow-sm, .shadow, .shadow-md, .shadow-lg, .shadow-xl, .shadow-2xl {
-  box-shadow: none !important;
-}
-
-.rounded-xl, .rounded-2xl, .rounded-3xl, .rounded-lg {
-  border-radius: 4px !important;
 }
 
 ::-webkit-scrollbar { width: 4px; height: 4px; }

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { portalFetch } from "@/lib/api";
 import { createClient } from "@/lib/supabase-browser";
-import { useTheme } from "@/lib/theme";
 // Note: createClient kept for magic link OTP flow
 import { toast } from "sonner";
 
@@ -13,7 +12,6 @@ export default function LoginPage() {
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
-  const { theme } = useTheme();
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -71,7 +69,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <img
-            src={theme === "dark" ? "/logo-dark.svg" : "/logo-light.svg"}
+            src="/logo-light.svg"
             alt="Stevin.AI"
             className="h-8 w-auto"
           />

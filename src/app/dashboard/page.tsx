@@ -1,38 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { portalFetch } from "@/lib/api";
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
+import { portalFetch } from "@/lib/api";
 import { toast } from "sonner";
-import {
-  Eye,
-  MousePointerClick,
-  Euro,
-  Target,
-  Image,
-  Wallet,
-  ArrowUpRight,
-  TrendingUp,
-  TrendingDown,
-  FileText,
-  Calendar,
-  MessageSquare,
-} from "lucide-react";
-import {
-  ResponsiveContainer,
-  ComposedChart,
-  Bar,
-  Line,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip as RechartsTooltip,
-  PieChart,
-  Pie,
-  Cell,
-} from "recharts";
 
-// ── Types ──────────────────────────────────────────────────────
 interface DashboardData {
   kpis: {
     impressions: number;
@@ -60,239 +33,6 @@ interface DashboardData {
   message?: string;
 }
 
-// ── Channel colors (match Desk) ────────────────────────────────
-const CHANNEL_CONFIG: Record<string, { dot: string; color: string }> = {
-  meta: { dot: "bg-blue-500", color: "#3b82f6" },
-  google_ads: { dot: "bg-yellow-500", color: "#eab308" },
-  linkedin: { dot: "bg-sky-500", color: "#0ea5e9" },
-  dv360: { dot: "bg-emerald-500", color: "#10b981" },
-  email: { dot: "bg-violet-500", color: "#8b5cf6" },
-};
-
-// ── Formatters ─────────────────────────────────────────────────
-function fmtNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toLocaleString("nl-NL");
-}
-
-function fmtEur(n: number): string {
-  return new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
-}
-
-function fmtCompact(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toFixed(0);
-}
-
-// ── Entry ──────────────────────────────────────────────────────
-export default function DashboardPage() {
-  return (
-    <AuthGuard>
-      {(user, client) => <DashboardContent clientName={client?.name || ""} />}
-    </AuthGuard>
-  );
-}
-
-// ── KPI Card (matches Desk style) ──────────────────────────────
-function KpiCard({
-  label,
-  value,
-  sublabel,
-  icon: Icon,
-  trend,
-}: {
-  label: string;
-  value: string;
-  sublabel?: string;
-  icon: React.ElementType;
-  trend?: number;
-}) {
-  return (
-    <div className="rounded-lg border border-border bg-card p-4 transition-colors hover:border-border/80 hover:bg-card-hover">
-      <div className="flex items-center gap-2 text-muted-foreground">
-        <Icon className="h-3.5 w-3.5" />
-        <span className="text-xs font-medium uppercase tracking-wider">{label}</span>
-      </div>
-      <p className="mt-2 text-2xl font-semibold tracking-tight text-foreground">{value}</p>
-      <div className="mt-1 flex items-center gap-2">
-        {sublabel && <span className="text-xs text-muted-foreground">{sublabel}</span>}
-        {trend !== undefined && trend !== 0 && (
-          <span className={`flex items-center gap-0.5 text-xs font-medium ${trend >= 0 ? "text-success" : "text-danger"}`}>
-            {trend >= 0 ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-            {Math.abs(trend).toFixed(1)}%
-          </span>
-        )}
-      </div>
-    </div>
-  );
-}
-
-// ── Performance Trend (ComposedChart — matches Desk) ───────────
-function PerformanceTrendChart({ data }: { data: DashboardData["trend"] }) {
-  if (data.length === 0) {
-    return (
-      <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">
-        Geen data beschikbaar
-      </div>
-    );
-  }
-
-  return (
-    <ResponsiveContainer width="100%" height={260}>
-      <ComposedChart data={data} margin={{ top: 4, right: 8, left: -12, bottom: 0 }}>
-        <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-        <XAxis
-          dataKey="date"
-          tick={{ fontSize: 11, fill: "var(--muted)" }}
-          tickLine={false}
-          axisLine={{ stroke: "var(--border)" }}
-          tickFormatter={(v: string) => {
-            const d = new Date(v);
-            return `${d.getDate()}/${d.getMonth() + 1}`;
-          }}
-          interval="preserveStartEnd"
-          minTickGap={40}
-        />
-        <YAxis
-          yAxisId="spend"
-          tick={{ fontSize: 11, fill: "var(--muted)" }}
-          tickLine={false}
-          axisLine={false}
-          tickFormatter={(v: number) => `€${fmtCompact(v)}`}
-        />
-        <YAxis
-          yAxisId="clicks"
-          orientation="right"
-          tick={{ fontSize: 11, fill: "var(--muted)" }}
-          tickLine={false}
-          axisLine={false}
-          tickFormatter={(v: number) => fmtCompact(v)}
-        />
-        <RechartsTooltip
-          contentStyle={{
-            backgroundColor: "var(--card)",
-            border: "1px solid var(--border)",
-            borderRadius: 8,
-            fontSize: 12,
-            color: "var(--foreground)",
-            boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-          }}
-          formatter={(value: unknown, name: unknown) => {
-            const v = Number(value) || 0;
-            if (name === "cost") return [fmtEur(v), "Investering"];
-            return [fmtNum(v), "Klikken"];
-          }}
-          labelFormatter={(label: unknown) => {
-            const d = new Date(String(label));
-            return d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric" });
-          }}
-        />
-        <Bar
-          yAxisId="spend"
-          dataKey="cost"
-          fill="var(--border)"
-          radius={[3, 3, 0, 0]}
-          maxBarSize={24}
-          name="cost"
-        />
-        <Line
-          yAxisId="clicks"
-          type="monotone"
-          dataKey="clicks"
-          stroke="var(--accent)"
-          strokeWidth={2}
-          dot={false}
-          activeDot={{ r: 3, strokeWidth: 0, fill: "var(--accent)" }}
-          name="clicks"
-        />
-      </ComposedChart>
-    </ResponsiveContainer>
-  );
-}
-
-// ── Channel Spend Donut (matches Desk) ─────────────────────────
-function ChannelSpendDonut({ channels }: { channels: DashboardData["channels"] }) {
-  const data = channels
-    .filter((ch) => ch.cost > 0)
-    .map((ch) => ({
-      name: ch.label,
-      value: ch.cost,
-      color: CHANNEL_CONFIG[ch.source]?.color ?? "#71717a",
-    }));
-
-  if (data.length === 0) {
-    return (
-      <div className="flex h-[260px] items-center justify-center text-sm text-muted-foreground">
-        Geen spend data
-      </div>
-    );
-  }
-
-  const total = data.reduce((s, d) => s + d.value, 0);
-
-  return (
-    <div className="flex h-[260px] flex-col items-center justify-center">
-      <ResponsiveContainer width="100%" height={180}>
-        <PieChart>
-          <Pie
-            data={data}
-            cx="50%"
-            cy="50%"
-            innerRadius={50}
-            outerRadius={72}
-            paddingAngle={2}
-            dataKey="value"
-            stroke="none"
-          >
-            {data.map((entry, i) => (
-              <Cell key={i} fill={entry.color} />
-            ))}
-          </Pie>
-          <RechartsTooltip
-            contentStyle={{
-              backgroundColor: "var(--card)",
-              border: "1px solid var(--border)",
-              borderRadius: 8,
-              fontSize: 12,
-              color: "var(--foreground)",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-            }}
-            formatter={(value: unknown) => [fmtEur(Number(value) || 0), "Investering"]}
-          />
-        </PieChart>
-      </ResponsiveContainer>
-      <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 px-2">
-        {data.map((entry) => (
-          <div key={entry.name} className="flex items-center gap-1.5">
-            <div className="h-2 w-2 rounded-full" style={{ backgroundColor: entry.color }} />
-            <span className="text-[11px] text-muted-foreground">
-              {entry.name}
-              <span className="ml-1 font-medium text-foreground">
-                {((entry.value / total) * 100).toFixed(0)}%
-              </span>
-            </span>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-// ── Widget wrapper (matches Desk) ──────────────────────────────
-function Widget({ title, children, className = "" }: { title: string; children: React.ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-lg border border-border bg-card ${className}`}>
-      <div className="flex items-center justify-between border-b border-border px-4 py-3">
-        <h3 className="text-sm font-medium text-foreground">{title}</h3>
-      </div>
-      <div className="p-4">{children}</div>
-    </div>
-  );
-}
-
-// ── Report type ───────────────────────────────────────────────
 interface Report {
   id: string;
   type: "weekly_report" | "monthly_report";
@@ -301,13 +41,114 @@ interface Report {
   created_at: string;
 }
 
-// ── Main Dashboard Content ─────────────────────────────────────
+const PERIODS = [7, 14, 30];
+
+function fmtNum(n: number): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString("nl-NL");
+}
+
+function fmtEur(n: number): string {
+  return new Intl.NumberFormat("nl-NL", {
+    style: "currency",
+    currency: "EUR",
+    maximumFractionDigits: 0,
+  }).format(n);
+}
+
+function pct(delta: number): string {
+  return `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}%`;
+}
+
+function calcTrend(data: DashboardData, field: keyof DashboardData["trend"][0]): number | null {
+  if (data.trend.length < 4) return null;
+  const mid = Math.floor(data.trend.length / 2);
+  const first = data.trend.slice(0, mid).reduce((sum, day) => sum + (Number(day[field]) || 0), 0);
+  const second = data.trend.slice(mid).reduce((sum, day) => sum + (Number(day[field]) || 0), 0);
+  if (!first) return null;
+  return ((second - first) / first) * 100;
+}
+
+function KpiCard({ label, value, context }: { label: string; value: string; context: string }) {
+  return (
+    <article className="rounded-[36px] border border-border bg-card px-8 py-7 shadow-[0_20px_60px_rgba(31,41,51,0.06)]">
+      <p className="text-[22px] font-bold tracking-[-0.03em] text-muted-foreground">{label}</p>
+      <strong className="mt-4 block text-[clamp(2.4rem,4vw,3.9rem)] font-black leading-none tracking-[-0.07em] text-foreground">
+        {value}
+      </strong>
+      <p className="mt-4 max-w-[18rem] text-[18px] leading-[1.12] tracking-[-0.025em] text-muted-foreground">
+        {context}
+      </p>
+    </article>
+  );
+}
+
+function MetricRow({ label, value, muted = false }: { label: string; value: string; muted?: boolean }) {
+  return (
+    <div className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-5 border-b border-border-subtle pb-4 last:border-0">
+      <span className="min-w-0 text-[22px] font-black tracking-[-0.045em] text-foreground">{label}</span>
+      <span className={`text-[22px] font-bold tracking-[-0.035em] ${muted ? "text-muted-foreground" : "text-foreground"}`}>
+        {value}
+      </span>
+    </div>
+  );
+}
+
+function DecisionCard({
+  index,
+  title,
+  meta,
+  why,
+  href,
+  cta,
+}: {
+  index: string;
+  title: string;
+  meta: string[];
+  why: string;
+  href: string;
+  cta: string;
+}) {
+  return (
+    <article className="grid gap-4 rounded-[22px] border border-border bg-card px-5 py-5 sm:grid-cols-[44px_minmax(0,1fr)_auto]">
+      <div className="grid h-10 w-10 place-items-center rounded-[14px] bg-[#eaf3ff] text-sm font-black text-accent">
+        {index}
+      </div>
+      <div className="min-w-0">
+        <h3 className="m-0 text-[22px] font-black leading-[1.05] tracking-[-0.045em] text-foreground">{title}</h3>
+        <div className="mt-3 flex flex-wrap gap-2">
+          {meta.map((item) => (
+            <span key={item} className="rounded-full border border-border bg-[#fbfcfe] px-3 py-1 text-xs font-bold text-muted-foreground">
+              {item}
+            </span>
+          ))}
+        </div>
+        <p className="mt-3 max-w-3xl text-[15px] leading-snug text-muted-foreground">{why}</p>
+      </div>
+      <Link
+        href={href}
+        className="inline-flex h-10 items-center justify-center rounded-full border border-foreground bg-foreground px-4 text-sm font-bold text-background"
+      >
+        {cta}
+      </Link>
+    </article>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <AuthGuard>
+      {(_user, client) => <DashboardContent clientName={client?.name || ""} />}
+    </AuthGuard>
+  );
+}
+
 function DashboardContent({ clientName }: { clientName: string }) {
   const [data, setData] = useState<DashboardData | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
-  const [loading, setLoading] = useState(true);
   const [period, setPeriod] = useState(30);
-  const [expandedReport, setExpandedReport] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
@@ -315,261 +156,207 @@ function DashboardContent({ clientName }: { clientName: string }) {
       portalFetch<DashboardData>(`/dashboard?days=${period}`),
       portalFetch<{ reports: Report[] }>("/reports").catch(() => ({ reports: [] })),
     ])
-      .then(([dashData, reportData]) => {
-        setData(dashData);
+      .then(([dashboard, reportData]) => {
+        setData(dashboard);
         setReports(reportData.reports);
       })
       .catch((err) => toast.error(err.message))
       .finally(() => setLoading(false));
   }, [period]);
 
+  const surface = useMemo(() => {
+    if (!data?.kpis) return null;
+    const kpis = data.kpis;
+    const costTrend = calcTrend(data, "cost");
+    const clickTrend = calcTrend(data, "clicks");
+    const conversionTrend = calcTrend(data, "conversions");
+    const impressionTrend = calcTrend(data, "impressions");
+    const topChannel = [...data.channels].sort((a, b) => b.conversions - a.conversions)[0];
+    const spendChannel = [...data.channels].sort((a, b) => b.cost - a.cost)[0];
+
+    return {
+      kpis,
+      costTrend,
+      clickTrend,
+      conversionTrend,
+      impressionTrend,
+      topChannel,
+      spendChannel,
+    };
+  }, [data]);
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      <div className="grid min-h-[56vh] place-items-center">
+        <div className="h-9 w-9 animate-spin rounded-full border-2 border-accent border-t-transparent" />
       </div>
     );
   }
 
-  if (!data?.kpis) {
+  if (!data?.kpis || !surface) {
     return (
-      <div className="text-center py-20">
-        <h2 className="text-xl font-semibold mb-2">Welkom, {clientName}!</h2>
-        <p className="text-muted-foreground">{data?.message || "Er is nog geen campagnedata beschikbaar."}</p>
-      </div>
+      <section className="rounded-[36px] border border-border bg-card p-10 shadow-[0_20px_60px_rgba(31,41,51,0.06)]">
+        <div className="mb-5 flex items-center gap-4">
+          <img src="/stevin-icon-navy.png" alt="" className="h-11 w-11" />
+          <div>
+            <h1 className="text-[clamp(2.2rem,5vw,4.4rem)] font-black leading-none tracking-[-0.07em]">
+              Overzicht
+            </h1>
+            <p className="mt-2 text-xl tracking-[-0.03em] text-muted-foreground">{clientName}</p>
+          </div>
+        </div>
+        <p className="max-w-2xl text-lg text-muted-foreground">
+          {data?.message || "Er is nog geen campagnedata beschikbaar. Koppel eerst je kanalen, dan verschijnt hier wat veranderde en wat aandacht vraagt."}
+        </p>
+        <Link
+          href="/dashboard/integrations"
+          className="mt-7 inline-flex rounded-full bg-foreground px-5 py-3 text-sm font-bold text-background"
+        >
+          Koppelingen beheren
+        </Link>
+      </section>
     );
   }
 
-  const kpis = data.kpis;
-
-  // Calculate simple trend (compare first half vs second half of period)
-  function calcTrend(field: keyof DashboardData["trend"][0]): number | undefined {
-    if (!data || data.trend.length < 4) return undefined;
-    const mid = Math.floor(data.trend.length / 2);
-    const first = data.trend.slice(0, mid).reduce((s, d) => s + (Number(d[field]) || 0), 0);
-    const second = data.trend.slice(mid).reduce((s, d) => s + (Number(d[field]) || 0), 0);
-    if (first === 0) return undefined;
-    return ((second - first) / first) * 100;
-  }
+  const { kpis, topChannel, spendChannel } = surface;
 
   return (
-    <div>
-      {/* Header + period selector */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between mb-6">
+    <div className="space-y-7">
+      <header className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Overzicht</h1>
-          <p className="text-muted-foreground text-sm mt-1">
-            Campagneresultaten van de afgelopen {period} dagen
+          <div className="flex items-center gap-4">
+            <img src="/stevin-icon-navy.png" alt="" className="h-12 w-12" />
+            <h1 className="text-[clamp(3.2rem,6vw,5.4rem)] font-black leading-none tracking-[-0.075em] text-foreground">
+              Overzicht
+            </h1>
+          </div>
+          <p className="mt-4 text-[clamp(1.35rem,2vw,2rem)] leading-tight tracking-[-0.035em] text-muted-foreground">
+            Wat veranderde er, wat vraagt actie, wat blijft stabiel.
           </p>
+          {clientName && <p className="mt-2 text-sm font-bold uppercase tracking-[0.14em] text-muted-foreground">{clientName}</p>}
         </div>
-        <div className="flex gap-1.5">
-          {[7, 14, 30].map((d) => (
+
+        <div className="inline-flex w-fit gap-2 rounded-full border border-border bg-card p-2 shadow-[0_10px_30px_rgba(31,41,51,0.05)]">
+          {PERIODS.map((days) => (
             <button
-              key={d}
-              onClick={() => setPeriod(d)}
-              className={`px-3 py-1.5 text-sm rounded-lg transition ${
-                period === d
-                  ? "bg-accent text-white"
-                  : "bg-card border border-border text-muted-foreground hover:text-foreground hover:bg-card-hover"
+              key={days}
+              type="button"
+              onClick={() => setPeriod(days)}
+              className={`rounded-full px-6 py-3 text-lg font-black transition ${
+                period === days ? "bg-foreground text-background" : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {d}d
+              {days}d
             </button>
           ))}
         </div>
-      </div>
+      </header>
 
-      {/* Action Cards (pending approvals / budgets) */}
+      <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-4">
+        <KpiCard label="Investering" value={fmtEur(kpis.cost)} context={`${kpis.cpc} per klik`} />
+        <KpiCard label="Bereik" value={fmtNum(kpis.impressions)} context="Aantal keer getoond" />
+        <KpiCard label="Klikken" value={fmtNum(kpis.clicks)} context={`${kpis.ctr}% klikpercentage`} />
+        <KpiCard label="Resultaten" value={fmtNum(kpis.conversions)} context={`${kpis.cpa} per resultaat`} />
+      </section>
+
       {(data.pendingApprovals > 0 || data.pendingBudgets > 0) && (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
+        <section className="grid gap-4 md:grid-cols-2">
           {data.pendingApprovals > 0 && (
-            <a
+            <DecisionCard
+              index="01"
+              title={`${data.pendingApprovals} goedkeuring${data.pendingApprovals === 1 ? "" : "en"} wacht${data.pendingApprovals === 1 ? "" : "en"}`}
+              meta={["Creatives", "actie nodig"]}
+              why="Er staat nieuw materiaal klaar dat pas live kan na akkoord."
               href="/dashboard/approvals"
-              className="flex items-center gap-4 p-4 bg-warning-light border border-warning/20 rounded-xl hover:border-warning/40 transition group"
-            >
-              <div className="w-10 h-10 bg-warning/20 rounded-lg flex items-center justify-center">
-                <Image className="w-5 h-5 text-warning" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold">{data.pendingApprovals} goedkeuring{data.pendingApprovals !== 1 ? "en" : ""} wacht{data.pendingApprovals === 1 ? "" : "en"}</p>
-                <p className="text-sm text-muted-foreground">Bekijk en keur creatives goed</p>
-              </div>
-              <ArrowUpRight className="w-5 h-5 text-muted group-hover:text-foreground transition flex-shrink-0" />
-            </a>
+              cta="Bekijken"
+            />
           )}
           {data.pendingBudgets > 0 && (
-            <a
+            <DecisionCard
+              index="02"
+              title={`${data.pendingBudgets} budgetvoorstel${data.pendingBudgets === 1 ? "" : "len"}`}
+              meta={["Budget", "beslissing"]}
+              why="Er ligt een voorstel klaar om budget te verschuiven op basis van de afgelopen periode."
               href="/dashboard/budget"
-              className="flex items-center gap-4 p-4 bg-accent-light border border-accent/20 rounded-xl hover:border-accent/40 transition group"
-            >
-              <div className="w-10 h-10 bg-accent/20 rounded-lg flex items-center justify-center">
-                <Wallet className="w-5 h-5 text-accent" />
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold">{data.pendingBudgets} budgetvoorstel{data.pendingBudgets !== 1 ? "len" : ""}</p>
-                <p className="text-sm text-muted-foreground">Bekijk en keur budgetwijzigingen goed</p>
-              </div>
-              <ArrowUpRight className="w-5 h-5 text-muted group-hover:text-foreground transition flex-shrink-0" />
-            </a>
+              cta="Bekijken"
+            />
+          )}
+        </section>
+      )}
+
+      <section className="rounded-[36px] border border-border bg-card px-8 py-8 shadow-[0_20px_60px_rgba(31,41,51,0.06)] lg:px-12">
+        <div className="mb-7 flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-[clamp(2.4rem,4vw,4rem)] font-black leading-none tracking-[-0.07em]">
+              Wat veranderde er deze periode?
+            </h2>
+            <p className="mt-4 max-w-3xl text-[clamp(1.25rem,2vw,1.85rem)] leading-tight tracking-[-0.035em] text-muted-foreground">
+              Performance samengevat voor eindklanten. Geen diagnose-overload, wel genoeg context om een beslissing te nemen.
+            </p>
+          </div>
+          <div className="inline-flex w-fit rounded-full border border-border bg-[#f8fafc] p-1">
+            <span className="rounded-full px-4 py-2 text-sm font-black text-muted-foreground">Brand</span>
+            <span className="rounded-full bg-foreground px-4 py-2 text-sm font-black text-background">Performance</span>
+            <span className="rounded-full px-4 py-2 text-sm font-black text-muted-foreground">Markt</span>
+          </div>
+        </div>
+
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(320px,0.7fr)]">
+          <div className="grid gap-5">
+            <MetricRow label="Investering" value={surface.costTrend == null ? fmtEur(kpis.cost) : pct(surface.costTrend)} muted={surface.costTrend != null && surface.costTrend < 0} />
+            <MetricRow label="Klikken" value={surface.clickTrend == null ? fmtNum(kpis.clicks) : pct(surface.clickTrend)} muted={surface.clickTrend != null && surface.clickTrend < 0} />
+            <MetricRow label="Resultaten" value={surface.conversionTrend == null ? fmtNum(kpis.conversions) : pct(surface.conversionTrend)} muted={surface.conversionTrend != null && surface.conversionTrend < 0} />
+            <MetricRow label="Bereik" value={surface.impressionTrend == null ? fmtNum(kpis.impressions) : pct(surface.impressionTrend)} muted={surface.impressionTrend != null && surface.impressionTrend < 0} />
+          </div>
+          <div className="rounded-[24px] border border-border bg-[#fbfcfe] p-6">
+            <p className="text-sm font-black uppercase tracking-[0.12em] text-muted-foreground">Context</p>
+            <div className="mt-5 grid gap-4 text-[17px] leading-snug text-muted-foreground">
+              <p>
+                <strong className="text-foreground">Meeste resultaat:</strong>{" "}
+                {topChannel ? `${topChannel.label} (${fmtNum(topChannel.conversions)} resultaten)` : "nog onvoldoende data"}.
+              </p>
+              <p>
+                <strong className="text-foreground">Meeste investering:</strong>{" "}
+                {spendChannel ? `${spendChannel.label} (${fmtEur(spendChannel.cost)})` : "nog onvoldoende data"}.
+              </p>
+              <p>
+                <strong className="text-foreground">Volgende stap:</strong> bekijk open goedkeuringen of vraag Stevin om toelichting op de cijfers.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-[36px] border border-border bg-card px-8 py-8 shadow-[0_20px_60px_rgba(31,41,51,0.06)]">
+        <div className="mb-6 flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+          <div>
+            <h2 className="text-[clamp(2rem,3vw,3rem)] font-black tracking-[-0.06em]">Meldingen</h2>
+            <p className="mt-2 text-xl tracking-[-0.035em] text-muted-foreground">Wat aandacht vraagt, met genoeg context om te beslissen.</p>
+          </div>
+          <Link href="/dashboard/chat" className="text-sm font-bold text-accent">Vraag Stevin om uitleg →</Link>
+        </div>
+
+        <div className="grid gap-4">
+          <DecisionCard
+            index="01"
+            title="Resultaten bewegen sterker dan investering"
+            meta={["Performance", `${period} dagen`, "uitlegbaar"]}
+            why="De verhouding tussen investering en resultaat is veranderd. Kijk vooral naar kanaalverschuivingen voordat er budget wordt aangepast."
+            href="/dashboard/campaigns"
+            cta="Campagnes"
+          />
+          {reports[0] && (
+            <DecisionCard
+              index="02"
+              title={reports[0].title}
+              meta={[reports[0].type === "monthly_report" ? "Maandrapport" : "Weekrapport", "rapportage"]}
+              why="Er staat een recente rapportage klaar. Deze bevat de samenvatting die je normaal in het klantgesprek gebruikt."
+              href="/dashboard"
+              cta="Openen"
+            />
           )}
         </div>
-      )}
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-6">
-        <KpiCard
-          label="Weergaven"
-          value={fmtNum(kpis.impressions)}
-          sublabel="Aantal keer getoond"
-          icon={Eye}
-          trend={calcTrend("impressions")}
-        />
-        <KpiCard
-          label="Klikken"
-          value={fmtNum(kpis.clicks)}
-          sublabel={`${kpis.ctr}% klikpercentage`}
-          icon={MousePointerClick}
-          trend={calcTrend("clicks")}
-        />
-        <KpiCard
-          label="Investering"
-          value={fmtEur(kpis.cost)}
-          sublabel={`${kpis.cpc} per klik`}
-          icon={Euro}
-          trend={calcTrend("cost")}
-        />
-        <KpiCard
-          label="Resultaten"
-          value={fmtNum(kpis.conversions)}
-          sublabel={`${kpis.cpa} per resultaat`}
-          icon={Target}
-          trend={calcTrend("conversions")}
-        />
-      </div>
-
-      {/* Charts row: Performance Trend + Channel Donut */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-6">
-        <Widget title="Dagelijks verloop" className="lg:col-span-2">
-          <PerformanceTrendChart data={data.trend} />
-        </Widget>
-        <Widget title="Verdeling per kanaal">
-          <ChannelSpendDonut channels={data.channels} />
-        </Widget>
-      </div>
-
-      {/* Channel Breakdown Table */}
-      {data.channels.length > 0 && (
-        <Widget title="Per kanaal">
-          <div className="overflow-x-auto -mx-4">
-            <table className="w-full text-sm min-w-[600px]">
-              <thead>
-                <tr className="border-b border-border text-muted-foreground text-left">
-                  <th className="px-4 py-2.5 font-medium">Kanaal</th>
-                  <th className="px-4 py-2.5 font-medium text-right">Weergaven</th>
-                  <th className="px-4 py-2.5 font-medium text-right">Klikken</th>
-                  <th className="px-4 py-2.5 font-medium text-right">Investering</th>
-                  <th className="px-4 py-2.5 font-medium text-right">Resultaten</th>
-                  <th className="px-4 py-2.5 font-medium text-right">CTR</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.channels.map((ch) => {
-                  const cfg = CHANNEL_CONFIG[ch.source];
-                  return (
-                    <tr key={ch.source} className="border-b border-border-subtle last:border-0 hover:bg-card-hover transition">
-                      <td className="px-4 py-2.5">
-                        <div className="flex items-center gap-2">
-                          <div className={`h-2 w-2 rounded-full ${cfg?.dot ?? "bg-zinc-500"}`} />
-                          <span className="font-medium">{ch.label}</span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-2.5 text-right text-muted-foreground">{fmtNum(ch.impressions)}</td>
-                      <td className="px-4 py-2.5 text-right text-muted-foreground">{fmtNum(ch.clicks)}</td>
-                      <td className="px-4 py-2.5 text-right">{fmtEur(ch.cost)}</td>
-                      <td className="px-4 py-2.5 text-right font-medium">{fmtNum(ch.conversions)}</td>
-                      <td className="px-4 py-2.5 text-right text-muted-foreground">{ch.ctr}%</td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </Widget>
-      )}
-
-      {/* Rapportages */}
-      {reports.length > 0 && (
-        <Widget title="Rapportages" className="mt-6">
-          <div className="space-y-3">
-            {reports.map((report) => {
-              const isExpanded = expandedReport === report.id;
-              const date = new Date(report.created_at);
-              const dateStr = date.toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" });
-              const isMonthly = report.type === "monthly_report";
-
-              return (
-                <div key={report.id} className="border border-border-subtle rounded-lg overflow-hidden">
-                  <button
-                    onClick={() => setExpandedReport(isExpanded ? null : report.id)}
-                    className="w-full flex items-center gap-3 p-4 hover:bg-card-hover transition text-left"
-                  >
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 ${
-                      isMonthly ? "bg-accent/10" : "bg-emerald-500/10"
-                    }`}>
-                      {isMonthly
-                        ? <Calendar className="w-4 h-4 text-accent" />
-                        : <FileText className="w-4 h-4 text-emerald-500" />
-                      }
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{report.title}</p>
-                      <p className="text-xs text-muted-foreground">{dateStr}</p>
-                    </div>
-                    <span className={`text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                      isMonthly
-                        ? "bg-accent/10 text-accent"
-                        : "bg-emerald-500/10 text-emerald-500"
-                    }`}>
-                      {isMonthly ? "Maand" : "Week"}
-                    </span>
-                    <ArrowUpRight className={`w-4 h-4 text-muted transition-transform ${isExpanded ? "rotate-90" : ""}`} />
-                  </button>
-                  {isExpanded && (
-                    <div className="px-4 pb-4 border-t border-border-subtle">
-                      <pre className="text-sm text-muted-foreground whitespace-pre-wrap mt-3 leading-relaxed font-sans">
-                        {report.body}
-                      </pre>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        </Widget>
-      )}
-
-      {/* Community Feedback (Beta) — placeholder */}
-      <div className="mt-6 rounded-lg border border-dashed border-border bg-card/50 p-6">
-        <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 rounded-lg bg-violet-500/10 flex items-center justify-center">
-            <MessageSquare className="w-5 h-5 text-violet-500" />
-          </div>
-          <div>
-            <h3 className="text-sm font-semibold flex items-center gap-2">
-              Community Feedback
-              <span className="text-[10px] font-medium uppercase tracking-wider px-2 py-0.5 rounded-full bg-violet-500/10 text-violet-500">
-                Beta
-              </span>
-            </h3>
-            <p className="text-xs text-muted-foreground">Binnenkort beschikbaar</p>
-          </div>
-        </div>
-        <p className="text-sm text-muted-foreground">
-          We werken aan een nieuwe functie die reacties op je advertenties automatisch analyseert.
-          Je ziet straks in één overzicht hoe je doelgroep reageert op je campagnes — van positieve
-          feedback tot aandachtspunten. Zo houd je de vinger aan de pols.
-        </p>
-      </div>
+      </section>
     </div>
   );
 }
