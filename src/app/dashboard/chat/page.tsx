@@ -92,8 +92,10 @@ function ChatContent({ userName }: { userName: string }) {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold">Stevin Assistant</h1>
+          {/* AI-vermelding staat bewust hier en niet in de lege staat: hij moet
+              zichtbaar blijven zodra er berichten zijn. AI Act art. 50(1). */}
           <p className="text-muted-foreground text-sm mt-1">
-            Stel vragen over je campagnes — in gewone taal
+            Je praat hier met AI, niet met je consultant. Stel je vraag over je campagnes in gewone taal.
           </p>
         </div>
       </div>
@@ -117,7 +119,7 @@ function ChatContent({ userName }: { userName: string }) {
             <Bot className="w-12 h-12 text-muted mx-auto mb-3" />
             <h3 className="font-medium mb-1">Hallo {userName}!</h3>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto">
-              Ik ben Stevin Assistant. Ik help je de resultaten te begrijpen en je campagnes te optimaliseren.
+              Ik ben de AI-assistent van Stevin. Ik help je de resultaten te begrijpen en je campagnes te optimaliseren.
             </p>
             <div className="flex flex-wrap gap-2 justify-center mt-4">
               {[
