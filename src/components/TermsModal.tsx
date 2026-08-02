@@ -61,7 +61,9 @@ export default function TermsModal({ onAccepted }: TermsModalProps) {
                 De AI-assistent geeft inzichten op basis van je campagnedata. Deze adviezen zijn uitsluitend
                 informatief en vormen geen garantie op specifieke resultaten. Je consultant blijft
                 verantwoordelijk voor de uitvoering van je campagnestrategie. Stevin.AI is niet aansprakelijk
-                voor beslissingen genomen op basis van AI-gegenereerde inzichten.
+                voor beslissingen genomen op basis van AI-gegenereerde inzichten. Als uit je berichten
+                blijkt dat je ergens ontevreden over bent, kan het systeem daar automatisch een melding
+                van sturen aan je consultant, zodat die contact met je kan opnemen.
               </p>
             </div>
 
