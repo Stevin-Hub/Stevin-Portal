@@ -17,12 +17,15 @@ import {
   X,
   UserCircle,
   Plug,
+  Clapperboard,
 } from "lucide-react";
 import TermsModal from "@/components/TermsModal";
 import { portalFetch } from "@/lib/api";
 
 const NAV_ITEMS = [
   { href: "/dashboard", label: "Overzicht", icon: LayoutDashboard },
+  // Alleen zichtbaar voor klanten met een creator-profiel (D-021, flag uit /me).
+  { href: "/dashboard/creator", label: "Creator", icon: Clapperboard, creatorOnly: true },
   { href: "/dashboard/approvals", label: "Goedkeuringen", icon: Image },
   { href: "/dashboard/budget", label: "Budget", icon: Wallet },
   { href: "/dashboard/brain", label: "Brain", icon: Sparkles },
@@ -39,6 +42,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [clientName, setClientName] = useState("");
   const [userEmail, setUserEmail] = useState("");
   const [orgType, setOrgType] = useState<string | null>(null);
+  const [isCreator, setIsCreator] = useState(false);
   const [impersonating, setImpersonating] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
 
@@ -66,6 +70,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       if (client.orgType) setOrgType(client.orgType);
     }
     setImpersonating(isImpersonating());
+
+    // Creator-vlag (D-021): bepaalt of het Creator-nav-item zichtbaar is.
+    // Ook bij impersonation, zodat een consultant ziet wat de klant ziet.
+    portalFetch<{ creator?: boolean }>("/me")
+      .then((me) => setIsCreator(Boolean(me.creator)))
+      .catch(() => setIsCreator(false));
 
     // Check terms acceptance (skip for impersonation)
     if (user && !isImpersonating()) {
@@ -110,6 +120,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <nav className="flex-1 p-4 space-y-1.5">
           {NAV_ITEMS
             .filter((item) => !('hideForAgency' in item && item.hideForAgency) || (orgType !== "agency" && orgType !== "agency_client"))
+            .filter((item) => !('creatorOnly' in item && item.creatorOnly) || isCreator)
             .map((item) => {
             const href = item.slugSlot ? item.href.replace("__SLUG__", getClient()?.slug || "") : item.href;
             const isActive = pathname === href || (href === "/dashboard" && pathname === "/dashboard");
@@ -166,6 +177,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <nav className="space-y-1">
               {NAV_ITEMS
                 .filter((item) => !('hideForAgency' in item && item.hideForAgency) || (orgType !== "agency" && orgType !== "agency_client"))
+            .filter((item) => !('creatorOnly' in item && item.creatorOnly) || isCreator)
                 .map((item) => {
                 const isActive = pathname === item.href;
                 return (
