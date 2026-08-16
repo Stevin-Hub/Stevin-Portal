@@ -24,8 +24,23 @@ export interface PortalClient {
   orgType?: string | null; // "agency" | "agency_client" | "direct_client" | "stevin"
 }
 
+const IMPERSONATE_KEY = "stevin-portal-impersonate-token";
+
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
+
+  // Impersonatie (?_t=... uit de Desk-knop "Bekijk als klant", 16 aug 2026):
+  // het token werd wel in de URL gezet maar nooit als login gebruikt, dus de
+  // knop was kapot. Session-only bewaren zodat doorklikken binnen de portal
+  // werkt en de echte login in localStorage onaangetast blijft.
+  const params = new URLSearchParams(window.location.search);
+  const impersonateParam = params.get("_t");
+  if (impersonateParam) {
+    sessionStorage.setItem(IMPERSONATE_KEY, impersonateParam);
+    return impersonateParam;
+  }
+  const impersonateStored = sessionStorage.getItem(IMPERSONATE_KEY);
+  if (impersonateStored) return impersonateStored;
 
   // Check Portal JWT first (magic link flow)
   const portalToken = localStorage.getItem(TOKEN_KEY);
@@ -88,6 +103,7 @@ export function clearAuth() {
   localStorage.removeItem(CLIENT_KEY);
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
+  sessionStorage.removeItem(IMPERSONATE_KEY);
 }
 
 export function isLoggedIn(): boolean {
@@ -97,5 +113,5 @@ export function isLoggedIn(): boolean {
 export function isImpersonating(): boolean {
   if (typeof window === "undefined") return false;
   const params = new URLSearchParams(window.location.search);
-  return params.has("_t");
+  return params.has("_t") || sessionStorage.getItem(IMPERSONATE_KEY) != null;
 }
