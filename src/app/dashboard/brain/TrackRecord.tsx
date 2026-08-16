@@ -27,6 +27,7 @@ interface ArchiveEntry {
   views?: number | null;
   views_multiplier?: number | null;
   multiplier_note?: string | null;
+  multiplier_basis?: { code: "not_mature" | "too_few" | "trailing_median"; days?: number; min?: number; window?: number } | null;
   retention_pct?: number | null;
   subscribers_gained?: number | null;
   subs_per_1000_views?: number | null;
@@ -57,6 +58,7 @@ interface ArchiveHeader {
   mature_after_days: number;
   trailing_window: number;
   counts: { videos: number; shorts: number; decisions: number; milestones: number };
+  period_months?: number;
 }
 
 interface ArchiveResponse {
@@ -219,7 +221,7 @@ interface Ui {
   int: (value: number | null | undefined) => string;
   dec: (value: number | null | undefined) => string;
   date: (value: string) => string;
-  note: (value: string | null | undefined) => string | null;
+  note: (value: string | null | undefined, basis?: ArchiveEntry["multiplier_basis"]) => string | null;
 }
 
 // Datums komen als YYYY-MM-DD binnen. new Date() op zo'n string leest UTC,
@@ -233,15 +235,32 @@ function parseDay(value: string): Date | null {
 // De Hub schrijft de multiplier-notitie in het Nederlands. Voor een
 // Engelstalige klant zetten we de drie bekende vormen om en nemen we het
 // getal uit de notitie zelf over, nooit een eigen schatting.
-function translateNote(note: string | null | undefined, lang: ArchiveLang): string | null {
+function translateNote(
+  note: string | null | undefined,
+  lang: ArchiveLang,
+  basis?: ArchiveEntry["multiplier_basis"],
+): string | null {
+  if (lang === "nl") return note ?? null;
+
+  // Sinds 17 aug levert de Hub een code met getallen naast de Nederlandse
+  // notitie. Daarop vertalen we; de tekstherkenning eronder is alleen nog
+  // terugval voor oudere antwoorden. Zo breekt een tekstwijziging in de Hub
+  // de Engelse weergave niet meer stilletjes.
+  if (basis) {
+    if (basis.code === "not_mature") return `less than ${basis.days ?? 30} days old`;
+    if (basis.code === "too_few") return `a median needs ${basis.min ?? 5} earlier videos in this format`;
+    if (basis.code === "trailing_median") {
+      return `against the median of the ${basis.window ?? 10} videos before it, which have been online longer`;
+    }
+  }
+
   if (!note) return null;
-  if (lang === "nl") return note;
   let match = /^nog geen (\d+) dagen oud$/.exec(note);
   if (match) return `less than ${match[1]} days old`;
   match = /^mediaan vanaf (\d+) eerdere video's in dit formaat$/.exec(note);
   if (match) return `a median needs ${match[1]} earlier videos in this format`;
-  match = /^tegenover de mediaan van de (\d+) video's ervoor$/.exec(note);
-  if (match) return `against the median of the ${match[1]} videos before it`;
+  match = /^tegenover de mediaan van de (\d+) video's ervoor(?:, die langer online staan)?$/.exec(note);
+  if (match) return `against the median of the ${match[1]} videos before it, which have been online longer`;
   return note;
 }
 
@@ -324,7 +343,7 @@ export default function TrackRecord({ language }: { language: ArchiveLang }) {
         if (!day) return value;
         return day.toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" });
       },
-      note: (value) => translateNote(value, language),
+      note: (value, basis) => translateNote(value, language, basis),
     };
   }, [language]);
 
@@ -392,6 +411,16 @@ function DossierHeader({ header, ui }: { header: ArchiveHeader; ui: Ui }) {
   addCount(counts?.shorts, c.countShort);
   addCount(counts?.decisions, c.countDecision);
   addCount(counts?.milestones, c.countMilestone);
+  // Abonnees is een totaal, de tellingen gaan over het opgevraagde venster.
+  // Zonder dit label leest de regel als kanaal-totaal (review 17 aug), en juist
+  // dit scherm wordt in een sponsorgesprek gelezen.
+  const periodMonths = header.period_months;
+  const countSuffix =
+    countParts.length > 0 && periodMonths
+      ? ui.lang === "en"
+        ? ` over the last ${periodMonths} months`
+        : ` in de laatste ${periodMonths} maanden`
+      : "";
 
   return (
     <section className="rounded-2xl border border-border bg-card px-4 py-5 shadow-[0_12px_32px_rgba(31,41,51,0.05)] sm:px-6">
@@ -448,9 +477,15 @@ function DossierHeader({ header, ui }: { header: ArchiveHeader; ui: Ui }) {
 
       {(header.subscribers != null || countParts.length > 0) && (
         <p className="mt-4 text-[12px] text-muted-foreground">
-          {[header.subscribers != null ? c.subscribersLine(ui.int(header.subscribers)) : null, ...countParts]
-            .filter(Boolean)
-            .join(", ")}
+          {header.subscribers != null && (
+            <span className="block">{c.subscribersLine(ui.int(header.subscribers))}</span>
+          )}
+          {countParts.length > 0 && (
+            <span className="block">
+              {countParts.join(", ")}
+              {countSuffix}
+            </span>
+          )}
         </p>
       )}
     </section>
@@ -531,7 +566,7 @@ function Stat({ label, value, muted }: { label: string; value: string; muted?: b
 
 function VideoCard({ entry, ui }: { entry: ArchiveEntry; ui: Ui }) {
   const c = ui.c;
-  const note = ui.note(entry.multiplier_note);
+  const note = ui.note(entry.multiplier_note, entry.multiplier_basis);
   const hasMultiplier = entry.views_multiplier != null;
   const formatLabel = entry.format === "short" ? c.formatShort : c.formatVideo;
   const lengthLabel = entry.length_class ? c.lengthLabels[entry.length_class] : null;

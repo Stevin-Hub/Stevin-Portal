@@ -84,7 +84,32 @@ const SOURCE_LABELS: Record<string, string> = {
   kennis: "kennis",
 };
 
-function sourceLabel(source: string): string {
+// Een Engelstalige klant las "campagnes fresh, kennis fresh" onder een
+// legenda die "Campaigns" en "Knowledge" zegt (review 17 aug). Alleen de
+// bronnen die de klantprojectie doorlaat hoeven een vertaling.
+const SOURCE_LABELS_EN: Record<string, string> = {
+  campaigns: "campaigns",
+  campagnes: "campaigns",
+  creatives: "creatives",
+  creaties: "creatives",
+  briefings: "briefings",
+  outcomes: "results",
+  resultaten: "results",
+  knowledge: "knowledge",
+  kennis: "knowledge",
+  ga4: "analytics",
+  sheets: "sheets",
+  mail: "mail",
+};
+
+function sourceLabel(source: string, lang: "nl" | "en" = "nl"): string {
+  if (lang === "en") {
+    return SOURCE_LABELS_EN[source] ?? SOURCE_LABELS[source] ?? source.replace(/_/g, " ");
+  }
+  return sourceLabelNl(source);
+}
+
+function sourceLabelNl(source: string): string {
   return SOURCE_LABELS[source] ?? source.replace(/_/g, " ");
 }
 
@@ -190,19 +215,19 @@ function BrainContent() {
 
           <p className="mt-3 text-[12px] leading-snug text-muted-foreground">{copy.dragHint}</p>
 
-          {data.health.length > 0 && <HealthLine health={data.health} copy={copy} locale={locale} />}
+          {data.health.length > 0 && <HealthLine health={data.health} copy={copy} locale={locale} lang={language} />}
         </section>
       )}
     </div>
   );
 }
 
-function HealthLine({ health, copy, locale }: { health: BrainHealth[]; copy: PageCopy; locale: string }) {
+function HealthLine({ health, copy, locale, lang }: { health: BrainHealth[]; copy: PageCopy; locale: string; lang: "nl" | "en" }) {
   return (
     <p className="mt-4 flex flex-wrap items-center gap-x-1.5 gap-y-1.5 border-t border-border-subtle pt-3 text-[12px] text-muted-foreground">
       <span className="font-semibold text-foreground">{copy.updatedPrefix}</span>
       {health.map((item, idx) => {
-        const label = sourceLabel(item.source);
+        const label = sourceLabel(item.source, lang);
         const word = copy.status[item.status];
         const title = syncTitle(item, copy, locale);
         const isLast = idx === health.length - 1;
