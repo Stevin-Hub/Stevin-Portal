@@ -71,10 +71,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
     setImpersonating(isImpersonating());
 
-    // Creator-vlag (D-021): bepaalt of het Creator-nav-item zichtbaar is.
-    // Ook bij impersonation, zodat een consultant ziet wat de klant ziet.
-    portalFetch<{ creator?: boolean }>("/me")
-      .then((me) => setIsCreator(Boolean(me.creator)))
+    // /me is de waarheid over wiens portaal dit is: bij impersonatie wees de
+    // localStorage-naam naar de EIGEN login (Van Gestel) terwijl de data van
+    // de meegekeken klant kwam (16 aug 2026). Naam en creator-vlag komen
+    // daarom altijd uit /me, dat met het actieve token meebeweegt.
+    portalFetch<{ creator?: boolean; client?: { name?: string } | null }>("/me")
+      .then((me) => {
+        setIsCreator(Boolean(me.creator));
+        if (me.client?.name) setClientName(me.client.name);
+      })
       .catch(() => setIsCreator(false));
 
     // Check terms acceptance (skip for impersonation)
