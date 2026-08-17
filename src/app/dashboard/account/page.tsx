@@ -5,7 +5,7 @@ import { portalFetch } from "@/lib/api";
 import AuthGuard from "@/components/AuthGuard";
 import { toast } from "sonner";
 import { User, Package, MessageCircle, ShieldCheck, Mail, Crown, Users, GraduationCap, Lightbulb, Search, Shield, UserCheck } from "lucide-react";
-import { useLanguage, localeFor, type Lang } from "@/lib/useLanguage";
+import { useLanguage, useLanguageReady, localeFor, type Lang } from "@/lib/useLanguage";
 
 interface AccountData {
   user: { id: string; email: string; displayName: string | null; role: string };
@@ -157,6 +157,7 @@ function AccountContent() {
   const [data, setData] = useState<AccountData | null>(null);
   const [loading, setLoading] = useState(true);
   const lang = useLanguage();
+  const langReady = useLanguageReady();
   const c = COPY[lang];
 
   useEffect(() => {
@@ -166,7 +167,9 @@ function AccountContent() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
+  // langReady erbij: de taal komt uit /me en tot die er is klopt geen enkele
+  // zin op dit scherm. De spinner heeft geen taal, dus die kan blijven staan.
+  if (loading || !langReady) {
     return (
       <div className="flex justify-center py-12">
         <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />

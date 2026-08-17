@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * /dashboard/creator, Casey's channel dashboard (D-021, English).
+ * /dashboard/creator, Casey's channel dashboard (D-021).
  *
  * Same data, same math as the internal Desk screen: everything comes from
  * the shared insights layer in the Hub (/api/portal/creator/*), client
@@ -10,11 +10,18 @@
  * video against your own normal. Shorts and long-form are never summed:
  * since 31 March 2025 a Shorts view counts every start or replay and is a
  * different unit than a long-form view.
+ *
+ * Bilingual since 17 August 2026, same pattern as the other client screens:
+ * one COPY object per language, language from clients.advisor_language via
+ * useLanguage(), dates and numbers through localeFor(lang). The trade terms
+ * (Shorts, long-form, multiplier) stay identical in both languages, only the
+ * explanations are translated.
  */
 
 import { useEffect, useMemo, useState } from "react";
 import AuthGuard from "@/components/AuthGuard";
 import { portalFetch } from "@/lib/api";
+import { useLanguage, useLanguageReady, localeFor, type Lang } from "@/lib/useLanguage";
 
 interface SyncMeta {
   last_sync_at: string | null;
@@ -71,16 +78,188 @@ interface RetentionResponse {
   curve: Array<{ bucket_ratio: number; audience_watch_ratio: number | null }>;
 }
 
-const fmt = (n: number | null | undefined) => (n == null ? "-" : Number(n).toLocaleString("en-US"));
+interface Copy {
+  loading: string;
+  title: string;
+  intro: string;
+  syncFresh: string;
+  syncStale: string;
+  signalsTitle: string;
+  signalsEmpty: string;
+  tileMedianLong: string;
+  tileMedianShort: string;
+  tileSubsPer1000: string;
+  tileClicks: string;
+  notMeasured: string;
+  notMeasuredInline: string;
+  medianLongHint: (sample: number) => string;
+  medianLongMissing: (sample: number) => string;
+  medianShortHint: (sample: number) => string;
+  medianShortMissing: (sample: number) => string;
+  subsPer1000Hint: (shorts: string) => string;
+  clicksHint: string;
+  formatFootnote: string;
+  channelLine: (subscribers: string, change: string, days: number) => string;
+  tableTitle: string;
+  tableIntro: string;
+  noVideos: string;
+  labelLongForm: string;
+  labelShorts: string;
+  inlineLongForm: string;
+  inlineShorts: string;
+  tableEmpty: (label: string) => string;
+  tableFootnote: (minSample: number) => string;
+  colVideo: string;
+  colLength: string;
+  colAge: string;
+  colViews: string;
+  colMultiplier: string;
+  colRetention: string;
+  colSubs: string;
+  noImage: string;
+  lengthLabels: Record<string, string>;
+  multiplierTitle: string;
+  multiplierMissingTitle: string;
+  retentionLoading: string;
+  retentionCaption: (date: string) => string;
+  retentionMissing: string;
+  chartStart: string;
+  chartEnd: string;
+}
 
-function lengthLabel(cls: string | null): string {
-  if (cls === "kort") return "short (<3m)";
-  if (cls === "middel") return "mid (3-10m)";
-  if (cls === "lang") return "long (10m+)";
+const COPY: Record<Lang, Copy> = {
+  nl: {
+    loading: "Je kanaal wordt geladen...",
+    title: "Je kanaal",
+    intro:
+      "Je cijfers tegen je eigen normaal. De data komt uit de YouTube Analytics API en loopt 48 tot 72 uur achter.",
+    syncFresh: "Data is actueel",
+    syncStale: "Data kan verouderd zijn",
+    signalsTitle: "Wat opvalt",
+    signalsEmpty:
+      "Er valt nu niets op. We melden alleen wat afwijkt van je eigen normaal, dus stil is prima.",
+    tileMedianLong: "Mediaan views, long-form",
+    tileMedianShort: "Mediaan views, Shorts",
+    tileSubsPer1000: "Abonnees per 1.000 views (90d)",
+    tileClicks: "Kliks naar shop of sponsor",
+    notMeasured: "Nog niet gemeten",
+    notMeasuredInline: "nog niet gemeten",
+    medianLongHint: (sample) =>
+      `Views over de hele levensduur van video's van 30 tot 90 dagen oud (${sample} video's).`,
+    medianLongMissing: (sample) =>
+      `Hiervoor zijn minstens 5 long-form video's van 30 tot 90 dagen oud nodig, nu ${sample}.`,
+    medianShortHint: (sample) =>
+      `Views over de hele levensduur van Shorts van 30 tot 90 dagen oud (${sample} Shorts). Nooit opgeteld bij long-form.`,
+    medianShortMissing: (sample) =>
+      `Hiervoor zijn minstens 5 Shorts van 30 tot 90 dagen oud nodig, nu ${sample}.`,
+    subsPer1000Hint: (shorts) => `Long-form. Shorts: ${shorts}.`,
+    clicksHint: "Hiervoor is een gemeten shortlink per video nodig, die laag komt eraan.",
+    formatFootnote:
+      "Shorts en long-form worden nooit bij elkaar opgeteld: sinds 31 maart 2025 telt een Shorts-view elke start of replay, een andere eenheid dan een view op long-form.",
+    channelLine: (subscribers, change, days) =>
+      `Kanaal: ${subscribers} abonnees, ${change} in ${days} dagen.`,
+    tableTitle: "Wat deed wat, tegen je eigen normaal",
+    tableIntro:
+      "De laatste 90 dagen, gesorteerd op nieuwe abonnees. De multiplier vergelijkt views per dag met de mediaan binnen hetzelfde formaat en dezelfde lengteklasse. Klik op een rij voor de retentiecurve.",
+    noVideos: "Nog geen video's in dit venster.",
+    labelLongForm: "Long-form",
+    labelShorts: "Shorts",
+    inlineLongForm: "long-form",
+    inlineShorts: "Shorts",
+    tableEmpty: (label) => `Nog geen ${label} in dit venster.`,
+    tableFootnote: (minSample) =>
+      `Een lege multiplier betekent minder dan ${minSample} video's in die lengteklasse, dan is er geen mediaan om tegen te vergelijken. Retentie is het gemiddelde percentage dat bekeken is, met het verschil tot de mediaan van de klasse in punten.`,
+    colVideo: "Video",
+    colLength: "Lengte",
+    colAge: "Leeftijd",
+    colViews: "Views",
+    colMultiplier: "Multiplier",
+    colRetention: "Retentie",
+    colSubs: "Abonnees /1.000 views",
+    noImage: "geen beeld",
+    lengthLabels: { kort: "kort (<3m)", middel: "middel (3-10m)", lang: "lang (10m+)" },
+    multiplierTitle: "Views per dag tegen de mediaan binnen formaat en lengteklasse",
+    multiplierMissingTitle: "Hiervoor zijn minstens 5 video's in deze lengteklasse nodig",
+    retentionLoading: "De retentiecurve wordt geladen...",
+    retentionCaption: (date) =>
+      `Retentie van het publiek, gemeten op ${date}. Boven de 100% aan het begin betekent dat mensen de opening terugkijken. De stippellijn is 100%.`,
+    retentionMissing:
+      "Nog geen retentiemeting voor deze video. Meetritme: je laatste 20 video's wekelijks, elke video op dag 7 en dag 30.",
+    chartStart: "start",
+    chartEnd: "einde video",
+  },
+  en: {
+    loading: "Loading your channel...",
+    title: "Your channel",
+    intro:
+      "Your numbers against your own normal. Data comes from the YouTube Analytics API, which runs 48 to 72 hours behind.",
+    syncFresh: "Data up to date",
+    syncStale: "Data may be stale",
+    signalsTitle: "Worth knowing",
+    signalsEmpty:
+      "Nothing stands out right now. We only flag what deviates from your own normal, so quiet is fine.",
+    tileMedianLong: "Median views, long-form",
+    tileMedianShort: "Median views, Shorts",
+    tileSubsPer1000: "Subscribers per 1,000 views (90d)",
+    tileClicks: "Clicks to shop or sponsor",
+    notMeasured: "Not measured yet",
+    notMeasuredInline: "not measured yet",
+    medianLongHint: (sample) => `Lifetime views of videos 30-90 days old (${sample} videos).`,
+    medianLongMissing: (sample) =>
+      `Needs at least 5 long-form videos aged 30-90 days; currently ${sample}.`,
+    medianShortHint: (sample) =>
+      `Lifetime views of Shorts 30-90 days old (${sample} Shorts). Never added to long-form.`,
+    medianShortMissing: (sample) =>
+      `Needs at least 5 Shorts aged 30-90 days; currently ${sample}.`,
+    subsPer1000Hint: (shorts) => `Long-form. Shorts: ${shorts}.`,
+    clicksHint: "Needs a tracked shortlink per video; that layer is coming.",
+    formatFootnote:
+      "Shorts and long-form are never added together: since 31 March 2025 a Shorts view counts every start or replay, a different unit than a long-form view.",
+    channelLine: (subscribers, change, days) =>
+      `Channel: ${subscribers} subscribers, ${change} in ${days} days.`,
+    tableTitle: "What did what, against your own normal",
+    tableIntro:
+      "Last 90 days, sorted by subscribers gained. The multiplier compares views per day with the median within the same format and length class. Click a row for the retention curve.",
+    noVideos: "No videos in this window yet.",
+    labelLongForm: "Long-form",
+    labelShorts: "Shorts",
+    inlineLongForm: "long-form",
+    inlineShorts: "Shorts",
+    tableEmpty: (label) => `No ${label} in this window.`,
+    tableFootnote: (minSample) =>
+      `An empty multiplier means fewer than ${minSample} videos in that length class; there is no median to compare against. Retention is the average percentage watched, with the difference from the class median in points.`,
+    colVideo: "Video",
+    colLength: "Length",
+    colAge: "Age",
+    colViews: "Views",
+    colMultiplier: "Multiplier",
+    colRetention: "Retention",
+    colSubs: "Subs /1,000 views",
+    noImage: "no image",
+    lengthLabels: { kort: "short (<3m)", middel: "mid (3-10m)", lang: "long (10m+)" },
+    multiplierTitle: "Views per day vs the median within format and length class",
+    multiplierMissingTitle: "Needs at least 5 videos in this length class",
+    retentionLoading: "Loading retention curve...",
+    retentionCaption: (date) =>
+      `Audience retention, measured ${date}. Above 100% at the start means people rewatch the opening. The dashed line is 100%.`,
+    retentionMissing:
+      "No retention measurement yet for this video. Measuring rhythm: your latest 20 videos weekly, every video at day 7 and day 30.",
+    chartStart: "start",
+    chartEnd: "end of video",
+  },
+};
+
+// Getallen komen afgerond uit de Hub (hooguit een decimaal), dus de standaard
+// opties zijn genoeg: het enige verschil tussen de talen is het scheidingsteken.
+const fmt = (n: number | null | undefined, lang: Lang) =>
+  n == null ? "-" : Number(n).toLocaleString(localeFor(lang));
+
+function lengthLabel(cls: string | null, c: Copy): string {
+  if (cls && c.lengthLabels[cls]) return c.lengthLabels[cls];
   return "-";
 }
 
-function RetentionChart({ curve }: { curve: RetentionResponse["curve"] }) {
+function RetentionChart({ curve, c }: { curve: RetentionResponse["curve"]; c: Copy }) {
   const points = curve.filter((p) => p.audience_watch_ratio != null);
   if (points.length < 2) return null;
   const W = 520, H = 140, PAD = 26;
@@ -99,8 +278,8 @@ function RetentionChart({ curve }: { curve: RetentionResponse["curve"] }) {
       )}
       <path d={`${path} L${toX(points[points.length - 1].bucket_ratio).toFixed(1)},${H - PAD} L${toX(points[0].bucket_ratio).toFixed(1)},${H - PAD} Z`} fill="rgba(60,142,255,0.12)" />
       <path d={path} fill="none" stroke="#3c8eff" strokeWidth="1.5" />
-      <text x={PAD} y={H - 8} fontSize="9" fill="currentColor" className="text-muted">start</text>
-      <text x={W - PAD} y={H - 8} fontSize="9" fill="currentColor" textAnchor="end" className="text-muted">end of video</text>
+      <text x={PAD} y={H - 8} fontSize="9" fill="currentColor" className="text-muted">{c.chartStart}</text>
+      <text x={W - PAD} y={H - 8} fontSize="9" fill="currentColor" textAnchor="end" className="text-muted">{c.chartEnd}</text>
       <text x={4} y={PAD + 4} fontSize="9" fill="currentColor" className="text-muted">{Math.round(maxY * 100)}%</text>
     </svg>
   );
@@ -108,18 +287,24 @@ function RetentionChart({ curve }: { curve: RetentionResponse["curve"] }) {
 
 function VideoTable({
   label,
+  emptyLabel,
   rows,
   expanded,
   onToggle,
   retention,
   retentionLoading,
+  lang,
+  c,
 }: {
   label: string;
+  emptyLabel: string;
   rows: VideoRow[];
   expanded: string | null;
   onToggle: (id: string) => void;
   retention: RetentionResponse | null;
   retentionLoading: boolean;
+  lang: Lang;
+  c: Copy;
 }) {
   return (
     <div>
@@ -127,19 +312,19 @@ function VideoTable({
         {label} <span className="text-muted font-normal">({rows.length})</span>
       </p>
       {rows.length === 0 ? (
-        <p className="text-sm text-muted">No {label.toLowerCase()} in this window.</p>
+        <p className="text-sm text-muted">{c.tableEmpty(emptyLabel)}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
               <tr className="text-left text-xs uppercase tracking-wide text-muted border-b border-border">
-                <th className="py-2 pr-3">Video</th>
-                <th className="py-2 pr-3">Length</th>
-                <th className="py-2 pr-3">Age</th>
-                <th className="py-2 pr-3 text-right">Views</th>
-                <th className="py-2 pr-3 text-right">Multiplier</th>
-                <th className="py-2 pr-3 text-right">Retention</th>
-                <th className="py-2 text-right">Subs /1,000 views</th>
+                <th className="py-2 pr-3">{c.colVideo}</th>
+                <th className="py-2 pr-3">{c.colLength}</th>
+                <th className="py-2 pr-3">{c.colAge}</th>
+                <th className="py-2 pr-3 text-right">{c.colViews}</th>
+                <th className="py-2 pr-3 text-right">{c.colMultiplier}</th>
+                <th className="py-2 pr-3 text-right">{c.colRetention}</th>
+                <th className="py-2 text-right">{c.colSubs}</th>
               </tr>
             </thead>
             <tbody>
@@ -157,46 +342,47 @@ function VideoTable({
                             // eslint-disable-next-line @next/next/no-img-element
                             <img src={v.thumbnail_url} alt="" className="w-full h-full object-cover" />
                           ) : (
-                            "no image"
+                            c.noImage
                           )}
                         </span>
                         <span className="truncate max-w-[260px]">{v.title || v.content_id}</span>
                       </span>
                     </td>
-                    <td className="py-2 pr-3 whitespace-nowrap">{lengthLabel(v.length_class)}</td>
+                    <td className="py-2 pr-3 whitespace-nowrap">{lengthLabel(v.length_class, c)}</td>
                     <td className="py-2 pr-3">{v.age_days}d</td>
-                    <td className="py-2 pr-3 text-right">{fmt(v.views)}</td>
-                    <td className="py-2 pr-3 text-right font-semibold" title={v.views_multiplier == null ? "Needs at least 5 videos in this length class" : "Views per day vs the median within format and length class"}>
-                      {v.views_multiplier != null ? `${v.views_multiplier}x` : "-"}
+                    <td className="py-2 pr-3 text-right">{fmt(v.views, lang)}</td>
+                    <td className="py-2 pr-3 text-right font-semibold" title={v.views_multiplier == null ? c.multiplierMissingTitle : c.multiplierTitle}>
+                      {v.views_multiplier != null ? `${fmt(v.views_multiplier, lang)}x` : "-"}
                     </td>
                     <td className="py-2 pr-3 text-right">
-                      {v.avg_view_percentage != null ? `${Math.round(Number(v.avg_view_percentage) * 10) / 10}%` : "-"}
+                      {v.avg_view_percentage != null ? `${fmt(Math.round(Number(v.avg_view_percentage) * 10) / 10, lang)}%` : "-"}
                       {v.retention_vs_median != null && (
-                        <span className="text-muted"> ({v.retention_vs_median >= 0 ? "+" : ""}{v.retention_vs_median}pt)</span>
+                        <span className="text-muted"> ({v.retention_vs_median >= 0 ? "+" : ""}{fmt(v.retention_vs_median, lang)}pt)</span>
                       )}
                     </td>
                     <td className="py-2 text-right font-semibold">
-                      {v.subs_per_1000_views != null ? fmt(v.subs_per_1000_views) : "-"}
-                      {v.subscribers_gained != null && <span className="text-muted font-normal"> (+{fmt(v.subscribers_gained)})</span>}
+                      {v.subs_per_1000_views != null ? fmt(v.subs_per_1000_views, lang) : "-"}
+                      {v.subscribers_gained != null && <span className="text-muted font-normal"> (+{fmt(v.subscribers_gained, lang)})</span>}
                     </td>
                   </tr>
                   {expanded === v.content_id && (
                     <tr key={`${v.content_id}-detail`} className="border-b border-border-subtle">
                       <td colSpan={7} className="py-3 px-2 bg-card/60">
                         {retentionLoading ? (
-                          <p className="text-sm text-muted">Loading retention curve...</p>
+                          <p className="text-sm text-muted">{c.retentionLoading}</p>
                         ) : retention && retention.curve.length > 1 ? (
                           <div className="max-w-xl">
-                            <RetentionChart curve={retention.curve} />
+                            <RetentionChart curve={retention.curve} c={c} />
                             <p className="text-xs text-muted mt-1.5">
-                              Audience retention, measured {retention.measured_on ? new Date(retention.measured_on).toLocaleDateString("en-GB") : "-"}.
-                              Above 100% at the start means people rewatch the opening. The dashed line is 100%.
+                              {c.retentionCaption(
+                                retention.measured_on
+                                  ? new Date(retention.measured_on).toLocaleDateString(localeFor(lang))
+                                  : "-",
+                              )}
                             </p>
                           </div>
                         ) : (
-                          <p className="text-sm text-muted">
-                            No retention measurement yet for this video. Measuring rhythm: your latest 20 videos weekly, every video at day 7 and day 30.
-                          </p>
+                          <p className="text-sm text-muted">{c.retentionMissing}</p>
                         )}
                       </td>
                     </tr>
@@ -212,6 +398,9 @@ function VideoTable({
 }
 
 function CreatorContent() {
+  const lang = useLanguage();
+  const langReady = useLanguageReady();
+  const c = COPY[lang];
   const [summary, setSummary] = useState<Summary | null>(null);
   const [videosRes, setVideosRes] = useState<VideosResponse | null>(null);
   const [signals, setSignals] = useState<SignalItem[]>([]);
@@ -248,31 +437,36 @@ function CreatorContent() {
   const shorts = useMemo(() => videos.filter((v) => v.content_type === "short"), [videos]);
   const med = videosRes?.medians;
 
-  if (loading) return <p className="text-sm text-muted p-6">Loading your channel...</p>;
+  // Zolang de taal niet vaststaat is er geen zin die klopt, dus alleen het
+  // rondje. Daarna pas de laadtekst in de taal van de klant.
+  if (!langReady) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+  if (loading) return <p className="text-sm text-muted p-6">{c.loading}</p>;
 
   return (
     <div className="space-y-6 p-6 max-w-5xl">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-bold">Your channel</h1>
-          <p className="text-sm text-muted mt-1">
-            Your numbers against your own normal. Data comes from the YouTube Analytics API, which runs 48 to 72 hours behind.
-          </p>
+          <h1 className="text-xl font-bold">{c.title}</h1>
+          <p className="text-sm text-muted mt-1">{c.intro}</p>
         </div>
         {summary?.sync && (
           <span className={`text-xs px-2.5 py-1 rounded-full ${summary.sync.fresh ? "bg-accent-light text-accent" : "bg-danger-light text-danger"}`}>
-            {summary.sync.fresh ? "Data up to date" : "Data may be stale"}
+            {summary.sync.fresh ? c.syncFresh : c.syncStale}
           </span>
         )}
       </div>
 
       {/* What's worth knowing */}
       <section className="rounded-2xl border border-border bg-card p-5">
-        <h2 className="text-sm font-semibold mb-3">Worth knowing</h2>
+        <h2 className="text-sm font-semibold mb-3">{c.signalsTitle}</h2>
         {signals.length === 0 ? (
-          <p className="text-sm text-muted">
-            Nothing stands out right now. We only flag what deviates from your own normal, so quiet is fine.
-          </p>
+          <p className="text-sm text-muted">{c.signalsEmpty}</p>
         ) : (
           <div className="space-y-2">
             {signals.slice(0, 5).map((sig) => (
@@ -280,7 +474,7 @@ function CreatorContent() {
                 <summary className="cursor-pointer text-sm font-semibold">
                   {sig.headline || sig.title}
                   <span className="text-muted font-normal text-xs ml-2">
-                    {new Date(sig.created_at_source).toLocaleDateString("en-GB")}
+                    {new Date(sig.created_at_source).toLocaleDateString(localeFor(lang))}
                   </span>
                 </summary>
                 {sig.summary && (
@@ -296,28 +490,30 @@ function CreatorContent() {
       <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         {[
           {
-            label: "Median views, long-form",
-            value: med?.video?.median_lifetime_views_30_90d != null ? fmt(med.video.median_lifetime_views_30_90d) : "Not measured yet",
+            label: c.tileMedianLong,
+            value: med?.video?.median_lifetime_views_30_90d != null ? fmt(med.video.median_lifetime_views_30_90d, lang) : c.notMeasured,
             hint: med?.video?.median_lifetime_views_30_90d != null
-              ? `Lifetime views of videos 30-90 days old (${med.video.sample_30_90d} videos).`
-              : `Needs at least 5 long-form videos aged 30-90 days; currently ${med?.video?.sample_30_90d ?? 0}.`,
+              ? c.medianLongHint(med.video.sample_30_90d)
+              : c.medianLongMissing(med?.video?.sample_30_90d ?? 0),
           },
           {
-            label: "Median views, Shorts",
-            value: med?.short?.median_lifetime_views_30_90d != null ? fmt(med.short.median_lifetime_views_30_90d) : "Not measured yet",
+            label: c.tileMedianShort,
+            value: med?.short?.median_lifetime_views_30_90d != null ? fmt(med.short.median_lifetime_views_30_90d, lang) : c.notMeasured,
             hint: med?.short?.median_lifetime_views_30_90d != null
-              ? `Lifetime views of Shorts 30-90 days old (${med.short.sample_30_90d} Shorts). Never added to long-form.`
-              : `Needs at least 5 Shorts aged 30-90 days; currently ${med?.short?.sample_30_90d ?? 0}.`,
+              ? c.medianShortHint(med.short.sample_30_90d)
+              : c.medianShortMissing(med?.short?.sample_30_90d ?? 0),
           },
           {
-            label: "Subscribers per 1,000 views (90d)",
-            value: med?.video?.subs_per_1000_views_90d != null ? fmt(med.video.subs_per_1000_views_90d) : "Not measured yet",
-            hint: `Long-form. Shorts: ${med?.short?.subs_per_1000_views_90d != null ? fmt(med.short.subs_per_1000_views_90d) : "not measured yet"}.`,
+            label: c.tileSubsPer1000,
+            value: med?.video?.subs_per_1000_views_90d != null ? fmt(med.video.subs_per_1000_views_90d, lang) : c.notMeasured,
+            hint: c.subsPer1000Hint(
+              med?.short?.subs_per_1000_views_90d != null ? fmt(med.short.subs_per_1000_views_90d, lang) : c.notMeasuredInline,
+            ),
           },
           {
-            label: "Clicks to shop or sponsor",
-            value: "Not measured yet",
-            hint: "Needs a tracked shortlink per video; that layer is coming.",
+            label: c.tileClicks,
+            value: c.notMeasured,
+            hint: c.clicksHint,
           },
         ].map((tile) => (
           <div key={tile.label} className="rounded-2xl border border-border bg-card p-4">
@@ -328,29 +524,29 @@ function CreatorContent() {
         ))}
       </section>
       <p className="text-xs text-muted -mt-3">
-        Shorts and long-form are never added together: since 31 March 2025 a Shorts view counts every start or replay, a different unit than a long-form view.
+        {c.formatFootnote}
         {summary?.kpis?.subscribers != null && (
-          <> Channel: {fmt(summary.kpis.subscribers)} subscribers, {summary.kpis.net_subscriber_change >= 0 ? "+" : ""}{fmt(summary.kpis.net_subscriber_change)} in {summary.days} days.</>
+          <> {c.channelLine(
+            fmt(summary.kpis.subscribers, lang),
+            `${summary.kpis.net_subscriber_change >= 0 ? "+" : ""}${fmt(summary.kpis.net_subscriber_change, lang)}`,
+            summary.days,
+          )}</>
         )}
       </p>
 
       {/* Every video against your own normal */}
       <section className="rounded-2xl border border-border bg-card p-5 space-y-5">
         <div>
-          <h2 className="text-sm font-semibold">What did what, against your own normal</h2>
-          <p className="text-xs text-muted mt-1">
-            Last 90 days, sorted by subscribers gained. The multiplier compares views per day with the median within the same format and length class. Click a row for the retention curve.
-          </p>
+          <h2 className="text-sm font-semibold">{c.tableTitle}</h2>
+          <p className="text-xs text-muted mt-1">{c.tableIntro}</p>
         </div>
         {videos.length === 0 ? (
-          <p className="text-sm text-muted">No videos in this window yet.</p>
+          <p className="text-sm text-muted">{c.noVideos}</p>
         ) : (
           <>
-            <VideoTable label="Long-form" rows={longForm} expanded={expanded} onToggle={(id) => setExpanded(expanded === id ? null : id)} retention={retention} retentionLoading={retentionLoading} />
-            <VideoTable label="Shorts" rows={shorts} expanded={expanded} onToggle={(id) => setExpanded(expanded === id ? null : id)} retention={retention} retentionLoading={retentionLoading} />
-            <p className="text-xs text-muted">
-              An empty multiplier means fewer than {videosRes?.min_class_sample ?? 5} videos in that length class; there is no median to compare against. Retention is the average percentage watched, with the difference from the class median in points.
-            </p>
+            <VideoTable label={c.labelLongForm} emptyLabel={c.inlineLongForm} rows={longForm} expanded={expanded} onToggle={(id) => setExpanded(expanded === id ? null : id)} retention={retention} retentionLoading={retentionLoading} lang={lang} c={c} />
+            <VideoTable label={c.labelShorts} emptyLabel={c.inlineShorts} rows={shorts} expanded={expanded} onToggle={(id) => setExpanded(expanded === id ? null : id)} retention={retention} retentionLoading={retentionLoading} lang={lang} c={c} />
+            <p className="text-xs text-muted">{c.tableFootnote(videosRes?.min_class_sample ?? 5)}</p>
           </>
         )}
       </section>

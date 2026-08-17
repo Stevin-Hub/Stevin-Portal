@@ -21,7 +21,7 @@ import {
 } from "lucide-react";
 import TermsModal from "@/components/TermsModal";
 import { portalFetch } from "@/lib/api";
-import { useLanguage, type Lang } from "@/lib/useLanguage";
+import { useLanguage, useLanguageReady, type Lang } from "@/lib/useLanguage";
 
 // Labels per taal; de vlaggen (creatorOnly, adminOnly, slugSlot) blijven ongemoeid.
 const NAV_ITEMS = [
@@ -71,6 +71,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const lang = useLanguage();
+  const langReady = useLanguageReady();
   const c = COPY[lang];
   const [mobileOpen, setMobileOpen] = useState(false);
   const [clientName, setClientName] = useState("");
@@ -148,6 +149,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   function handleLogout() {
     clearAuth();
     router.replace("/login");
+  }
+
+  // De schermen houden hun eigen spinner aan tot de taal bekend is. Doet de
+  // schil dat niet, dan flitst het menu alsnog in de verkeerde taal.
+  if (!langReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (

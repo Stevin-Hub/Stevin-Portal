@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { isLoggedIn, getClient } from "@/lib/auth";
 import { portalFetch } from "@/lib/api";
-import { useLanguage } from "@/lib/useLanguage";
+import { useLanguage, useLanguageReady } from "@/lib/useLanguage";
 
 const COPY = {
   nl: {
@@ -24,6 +24,7 @@ export default function SlugDashboardPage() {
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "denied">("loading");
   const c = COPY[useLanguage()];
+  const langReady = useLanguageReady();
   const slug = typeof params.slug === "string" ? params.slug : "";
 
   useEffect(() => {
@@ -47,7 +48,9 @@ export default function SlugDashboardPage() {
       .catch(() => setStatus("denied"));
   }, [slug, router]);
 
-  if (status === "denied") {
+  // langReady erbij: de melding hieronder is de enige tekst op dit scherm, dus
+  // die mag pas verschijnen als de taal uit /me vaststaat. Tot dan het rondje.
+  if (status === "denied" && langReady) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center px-4">
         <div className="w-16 h-16 bg-red-50 dark:bg-red-900/20 rounded-full flex items-center justify-center mb-6">

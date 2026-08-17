@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { portalFetch } from "@/lib/api";
-import { useLanguage, type Lang } from "@/lib/useLanguage";
+import { useLanguage, useLanguageReady, type Lang } from "@/lib/useLanguage";
 import AuthGuard from "@/components/AuthGuard";
 import { toast } from "sonner";
 import { Send, Bot, User, AlertTriangle } from "lucide-react";
@@ -98,6 +98,7 @@ export default function ChatPage() {
 
 function ChatContent({ userName }: { userName: string }) {
   const lang = useLanguage();
+  const langReady = useLanguageReady();
   const c = COPY[lang];
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -166,6 +167,17 @@ function ChatContent({ userName }: { userName: string }) {
 
   const usagePct = usage ? Math.min(100, Math.round((usage.used / usage.limit) * 100)) : null;
   const fairUseWarning = usagePct !== null && usagePct >= 90;
+
+  // De taal komt uit /me. Tot die binnen is klopt geen enkele zin op dit
+  // scherm, ook de kop niet, dus tonen we hetzelfde rondje als bij het laden
+  // van de data.
+  if (!langReady) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)] lg:h-[calc(100vh-4rem)]">

@@ -6,7 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
 import { portalFetch } from "@/lib/api";
 import { getClient } from "@/lib/auth";
-import { useLanguage, localeFor, type Lang } from "@/lib/useLanguage";
+import { useLanguage, useLanguageReady, localeFor, type Lang } from "@/lib/useLanguage";
 import { toast } from "sonner";
 
 interface DashboardData {
@@ -41,9 +41,23 @@ interface DashboardData {
 interface Report {
   id: string;
   type: "weekly_report" | "monthly_report";
+  /**
+   * De kop zoals de Hub hem heeft opgeslagen, inclusief de periode
+   * ("Weekrapportage Van Gestel, week 11-05-2026 t/m 17-05-2026"). Nooit
+   * vervangen door een label uit type: dan verdwijnt de periode van het scherm
+   * en zijn twee weekrapportages van dezelfde klant niet meer uit elkaar te
+   * houden. Oudere rijen dragen een eigen kop, bijvoorbeeld
+   * "Wekelijkse digest LUMOS, week 19", dus hier niets uit afleiden.
+   */
   title: string;
   body: string;
   created_at: string;
+  /**
+   * Taal waarin de Hub deze tekst heeft geschreven. Het rapport-sjabloon is
+   * Nederlands, dus dit is "nl" en de kop hierboven ook. Ontbreekt het veld,
+   * dan draait er een oudere Hub en zegt het portaal er niets over.
+   */
+  bodyLanguage?: Lang;
 }
 
 interface Copy {
@@ -97,6 +111,11 @@ interface Copy {
   campaigns: string;
   reportsTitle: string;
   reportsIntro: string;
+  /**
+   * Melding dat de rapportages zelf in een andere taal staan dan dit scherm.
+   * null als er niets te melden valt, want dan lopen scherm en rapport gelijk.
+   */
+  reportsOtherLanguage: string | null;
   monthlyReport: string;
   weeklyReport: string;
   read: string;
@@ -173,6 +192,7 @@ const COPY: Record<Lang, Copy> = {
     campaigns: "Campagnes",
     reportsTitle: "Rapportages",
     reportsIntro: "De samenvattingen die je normaal in het klantgesprek krijgt.",
+    reportsOtherLanguage: null,
     monthlyReport: "Maandrapport",
     weeklyReport: "Weekrapport",
     read: "Lezen",
@@ -246,6 +266,7 @@ const COPY: Record<Lang, Copy> = {
     campaigns: "Campaigns",
     reportsTitle: "Reports",
     reportsIntro: "The summaries you would normally get in a review meeting.",
+    reportsOtherLanguage: "Your consultant writes these reports in Dutch.",
     monthlyReport: "Monthly report",
     weeklyReport: "Weekly report",
     read: "Read",
@@ -381,6 +402,7 @@ export default function DashboardPage() {
 
 function DashboardContent({ clientName, clientSlug }: { clientName: string; clientSlug: string }) {
   const lang = useLanguage();
+  const langReady = useLanguageReady();
   const c = COPY[lang];
   const locale = localeFor(lang);
   const router = useRouter();
@@ -465,7 +487,9 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
     };
   }, [data]);
 
-  if (loading) {
+  // langReady erbij: de taal komt uit /me en tot die er is klopt geen enkele
+  // zin op dit scherm. De spinner heeft geen taal, dus die kan blijven staan.
+  if (loading || !langReady) {
     return (
       <div className="grid min-h-[56vh] place-items-center">
         <div className="h-9 w-9 animate-spin rounded-full border-2 border-accent border-t-transparent" />
@@ -678,13 +702,29 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
           <div className="mb-3">
             <h2 className="text-lg font-bold tracking-[-0.01em]">{c.reportsTitle}</h2>
             <p className="mt-1 text-[13px] text-muted-foreground">{c.reportsIntro}</p>
+            {/* De kop en de tekst van een rapportage komen kant en klaar uit de
+                Hub en staan in het Nederlands. Bij een klant die het portaal in
+                het Engels leest, zegt dit scherm dat er dus bij, in plaats van
+                een Engels label boven een Nederlandse tekst te zetten. Stuurt de
+                Hub geen taal mee, dan claimt het portaal hier niets. */}
+            {c.reportsOtherLanguage && reports.some((r) => r.bodyLanguage && r.bodyLanguage !== lang) && (
+              <p className="mt-1 text-[12px] text-muted-foreground">{c.reportsOtherLanguage}</p>
+            )}
           </div>
           <div className="grid gap-2">
             {reports.slice(0, 3).map((r) => (
               <details key={r.id} className="group rounded-xl border border-border bg-[#fbfcfe] px-4 py-3">
                 <summary className="flex cursor-pointer list-none items-center justify-between gap-3">
                   <span className="min-w-0">
-                    <span className="block truncate text-[14px] font-semibold text-foreground">{r.title}</span>
+                    {/* De kop is de titel van de Hub, want daar zit de periode in.
+                        Die kan lang worden, dus title= zet de volledige regel er
+                        nog eens onder en maakt truncate ongevaarlijk. Het type
+                        ernaast is de indeling van het portaal zelf en mag wel
+                        vertaald worden; de melding boven de lijst vertelt in
+                        welke taal de tekst eronder staat. */}
+                    <span className="block truncate text-[14px] font-semibold text-foreground" title={r.title}>
+                      {r.title}
+                    </span>
                     <span className="mt-0.5 block text-[12px] text-muted-foreground">
                       {r.type === "monthly_report" ? c.monthlyReport : c.weeklyReport} ·{" "}
                       {new Date(r.created_at).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })}

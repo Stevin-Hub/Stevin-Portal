@@ -10,18 +10,49 @@ import simpleIconsData from "@iconify-json/simple-icons/icons.json";
 addCollection(simpleIconsData);
 import { isLoggedIn, getClient } from "@/lib/auth";
 import { portalFetch } from "@/lib/api";
-import { useLanguage, localeFor, type Lang } from "@/lib/useLanguage";
+import { useLanguage, useLanguageReady, localeFor, type Lang } from "@/lib/useLanguage";
 import { toast } from "sonner";
 
-type ConnectionStatus = "not_connected" | "connected" | "broken";
+/**
+ * Drie toestanden waren er, en dat waren er een te weinig.
+ *
+ * "connected" betekende alleen dat er een rij in de database stond, niet dat er
+ * iets binnenkwam. Van Gestel Kozijnen had GA4 sinds 8 april 2026 op groen
+ * staan terwijl er nooit een meting is aangekomen. Daarom "attention": wel
+ * gekoppeld, maar het levert niets of het loopt achter. Dat is geen storing en
+ * ook geen gezonde koppeling, en het hoort niet als een van beide te lezen.
+ */
+type ConnectionStatus = "not_connected" | "connected" | "attention" | "broken";
+
+/**
+ * Van wie de koppeling is.
+ *
+ * "client" betekent: dit platform staat op naam van deze klant en levert data
+ * voor deze klant. "organization" betekent: op de organisatie van deze klant
+ * bestaat een koppeling, maar niet voor deze klant. Tot 17 aug 2026 kende het
+ * scherm dat verschil niet en presenteerde het de koppelingen van de
+ * organisatie als die van de klant.
+ */
+type ConnectionScope = "client" | "organization" | null;
+
+/**
+ * Waarom een koppeling aandacht vraagt. De Hub bepaalt dit, het scherm vertaalt
+ * het alleen naar een zin. Onbekende redenen vallen terug op een algemene zin,
+ * nooit op de kale code.
+ */
+type HealthReason = "no_data_yet" | "data_stale" | "sync_warning" | "sync_stale" | "sync_error" | "auth_failure";
 
 interface Connection {
   platform: string;
   status: ConnectionStatus;
-  token_expiry?: string | null;
-  granted_by_role?: string | null;
-  last_successful_sync_at?: string | null;
+  scope?: ConnectionScope;
+  health_reason?: HealthReason | string | null;
+  expects_data?: boolean;
+  account_name?: string | null;
   connected_at?: string | null;
+  last_data_at?: string | null;
+  last_sync_at?: string | null;
+  last_sync_status?: string | null;
   auth_failure_at?: string | null;
   consecutive_failure_count?: number;
 }
@@ -100,6 +131,17 @@ const PLATFORMS: PlatformMeta[] = [
     enabled: true,
   },
   {
+    id: "youtube",
+    name: "YouTube",
+    iconName: "simple-icons:youtube",
+    iconColor: "#FF0000",
+    // Geen self-service OAuth-route in de Hub; de kanaalkoppeling loopt via
+    // Stevin. Staat hier omdat het voor een creator-klant het enige platform
+    // kan zijn dat echt data levert, en dat hoort niet van het scherm te
+    // ontbreken terwijl er wel dertien lege kaarten staan.
+    enabled: false,
+  },
+  {
     id: "hubspot",
     name: "HubSpot CRM",
     iconName: "simple-icons:hubspot",
@@ -153,17 +195,27 @@ interface Copy {
   pageIntro: string;
   connectedOn: (date: string) => string;
   lastSync: (relative: string) => string;
+  availableViaOrganization: string;
   brokenSince: (date: string) => string;
+  syncFailedOn: (date: string) => string;
+  syncFailed: string;
   failedSyncs: (count: number) => string;
+  noDataYet: string;
+  dataStale: (date: string) => string;
+  syncWarning: string;
+  syncStale: (date: string) => string;
+  attentionGeneric: string;
   comingSoon: string;
   connectedButton: string;
   letStevinRepair: string;
+  letStevinCheck: string;
   viaStevin: string;
   busy: string;
   connectAgain: string;
   reconnect: string;
   connect: string;
   badgeConnected: string;
+  badgeAttention: string;
   badgeBroken: string;
   badgeNotConnected: string;
   manualTitle: string;
@@ -189,6 +241,7 @@ const COPY: Record<Lang, Copy> = {
       tiktok: "Advertentiedata en pagina-inzichten van TikTok.",
       x: "Advertentiedata en post-inzichten van X Ads.",
       snapchat: "Advertentiedata en campagne-statistieken van Snapchat Ads Manager.",
+      youtube: "Weergaven, kijktijd en abonnees van je YouTube-kanaal.",
       hubspot: "Contacten, deals en lifecycle-stages uit HubSpot voor lead-attributie.",
       teamleader: "Contacten, deals en activiteiten uit Teamleader Focus voor lead-attributie.",
       pipedrive: "Deals, activiteiten en pipeline-fases uit Pipedrive.",
@@ -207,18 +260,34 @@ const COPY: Record<Lang, Copy> = {
     pageIntro:
       "Stevin activeert advertentie- en analytics-koppelingen samen met je team. Zo voorkomen we dat je op technische Google- of Meta-schermen terechtkomt tijdens de onboarding.",
     connectedOn: (date) => `Gekoppeld op ${date}`,
-    lastSync: (relative) => ` · Laatste sync ${relative}`,
+    lastSync: (relative) => ` · Laatste data ${relative}`,
+    // Neutraal op organisatieniveau. Hier stond "Stevin heeft dit platform
+    // gekoppeld", terwijl de organisatie van de klant lang niet altijd Stevin
+    // is: Van Gestel hangt onder Alona Marketing, De Avenue onder zichzelf.
+    // Niet "op je account": bij een klant onder een bureau zijn dit de accounts
+    // van dat bureau. Casey zou anders lezen dat zijn Meta al gekoppeld is
+    // terwijl hij dat account helemaal niet heeft.
+    availableViaOrganization: "Dit platform loopt via de organisatie die je account beheert, nog niet op jouw eigen data.",
     brokenSince: (date) => `Koppeling werkt niet meer sinds ${date}`,
-    failedSyncs: (count) => ` (${count} mislukte syncs)`,
+    syncFailedOn: (date) => `Het ophalen van ${date} is mislukt`,
+    syncFailed: "Het laatste ophalen is mislukt",
+    failedSyncs: (count) => ` (${count} mislukte pogingen)`,
+    noDataYet: "Er komt nog geen data binnen.",
+    dataStale: (date) => `De laatste data is van ${date}.`,
+    syncWarning: "De laatste keer ophalen leverde geen data op.",
+    syncStale: (date) => `Er is sinds ${date} niets opgehaald.`,
+    attentionGeneric: "Er komt op dit moment geen data binnen.",
     comingSoon: "Binnenkort",
     connectedButton: "Gekoppeld",
     letStevinRepair: "Laat Stevin herstellen",
+    letStevinCheck: "Laat Stevin nakijken",
     viaStevin: "Via Stevin",
     busy: "Bezig...",
     connectAgain: "Opnieuw koppelen",
     reconnect: "Opnieuw verbinden",
     connect: "Verbinden",
     badgeConnected: "Verbonden",
+    badgeAttention: "Let op",
     badgeBroken: "Verbroken",
     badgeNotConnected: "Niet verbonden",
     manualTitle: "Niet via een knop",
@@ -276,6 +345,7 @@ const COPY: Record<Lang, Copy> = {
       tiktok: "Ad data and page insights from TikTok.",
       x: "Ad data and post insights from X Ads.",
       snapchat: "Ad data and campaign statistics from Snapchat Ads Manager.",
+      youtube: "Views, watch time and subscribers from your YouTube channel.",
       hubspot: "Contacts, deals and lifecycle stages from HubSpot for lead attribution.",
       teamleader: "Contacts, deals and activities from Teamleader Focus for lead attribution.",
       pipedrive: "Deals, activities and pipeline stages from Pipedrive.",
@@ -294,18 +364,28 @@ const COPY: Record<Lang, Copy> = {
     pageIntro:
       "Stevin activates advertising and analytics connections together with your team. That way you never end up on technical Google or Meta screens during onboarding.",
     connectedOn: (date) => `Connected on ${date}`,
-    lastSync: (relative) => ` · Last sync ${relative}`,
+    lastSync: (relative) => ` · Last data ${relative}`,
+    availableViaOrganization: "This platform runs through the organisation that manages your account, not on your own data yet.",
     brokenSince: (date) => `Connection stopped working on ${date}`,
-    failedSyncs: (count) => ` (${count} failed syncs)`,
+    syncFailedOn: (date) => `The fetch on ${date} failed`,
+    syncFailed: "The last fetch failed",
+    failedSyncs: (count) => ` (${count} failed attempts)`,
+    noDataYet: "No data is coming in yet.",
+    dataStale: (date) => `The most recent data is from ${date}.`,
+    syncWarning: "The last fetch returned no data.",
+    syncStale: (date) => `Nothing has been fetched since ${date}.`,
+    attentionGeneric: "No data is coming in right now.",
     comingSoon: "Coming soon",
     connectedButton: "Connected",
     letStevinRepair: "Let Stevin repair it",
+    letStevinCheck: "Let Stevin check it",
     viaStevin: "Via Stevin",
     busy: "Working...",
     connectAgain: "Connect again",
     reconnect: "Reconnect",
     connect: "Connect",
     badgeConnected: "Connected",
+    badgeAttention: "Attention",
     badgeBroken: "Broken",
     badgeNotConnected: "Not connected",
     manualTitle: "Not through a button",
@@ -365,6 +445,7 @@ export default function IntegrationsPage() {
   const searchParams = useSearchParams();
   const slug = typeof params.slug === "string" ? params.slug : "";
   const lang = useLanguage();
+  const langReady = useLanguageReady();
   const c = COPY[lang];
   // De taal komt na een /me-call binnen. Via een ref kunnen de effecten hun
   // oorspronkelijke dependency-array houden (geen dubbele fetch of dubbele toast).
@@ -436,7 +517,9 @@ export default function IntegrationsPage() {
     }
   }
 
-  if (authState === "loading") {
+  // langReady erbij: de taal komt uit /me en tot die er is klopt geen enkele
+  // zin op dit scherm. De spinner heeft geen taal, dus die kan blijven staan.
+  if (authState === "loading" || !langReady) {
     return (
       <div className="flex items-center justify-center min-h-[60vh]">
         <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
@@ -535,6 +618,19 @@ function PlatformCard({
   lang: Lang;
 }) {
   const c = COPY[lang];
+  // Alleen een koppeling van de klant zelf mag zich als de zijne voordoen. Een
+  // koppeling die alleen op bureau-niveau bestaat, krijgt geen groene badge,
+  // geen datum en geen sync-regel.
+  const isOwn = connection?.scope === "client";
+  const viaOrganizationOnly = connection?.scope === "organization";
+  // Zolang de Hub nog de oude vorm zonder scope teruggeeft, blijft de badge
+  // grijs. Te weinig claimen is hier de veilige kant: een groene badge die niet
+  // van de klant is, is precies wat dit scherm moest afleren.
+  const badgeStatus: ConnectionStatus = isOwn ? status : "not_connected";
+  // De datumregel hoort ook bij "let op": juist daar wil je zien hoe lang dit
+  // al zo staat. Van Gestel Kozijnen leest dan "Gekoppeld op 8 apr 2026" met
+  // daaronder dat er nog geen data binnenkomt.
+  const showsDateLine = isOwn && (status === "connected" || status === "attention");
   return (
     <div className="bg-card border border-border rounded-2xl p-5 flex flex-col gap-4">
       <div className="flex items-start gap-3">
@@ -545,27 +641,61 @@ function PlatformCard({
           <h3 className="font-semibold text-base leading-tight">{platform.name}</h3>
           <p className="text-xs text-muted-foreground mt-1 leading-snug">{c.platformDescriptions[platform.id]}</p>
         </div>
-        <StatusBadge status={status} lang={lang} />
+        <StatusBadge status={badgeStatus} lang={lang} />
       </div>
 
-      {status === "connected" && connection?.connected_at && (
+      {showsDateLine && connection?.connected_at && (
         <p className="text-xs text-muted-foreground">
           {c.connectedOn(formatDate(connection.connected_at, lang))}
-          {connection.last_successful_sync_at ? c.lastSync(formatRelative(connection.last_successful_sync_at, lang)) : ""}
+          {/* Bij "let op" draagt de oranje regel hieronder de recentheid, dus
+              hier geen tweede tijdsaanduiding die iets anders lijkt te zeggen. */}
+          {status === "connected" && connection.last_data_at
+            ? c.lastSync(formatRelative(connection.last_data_at, lang))
+            : ""}
+          {connection.account_name ? ` · ${connection.account_name}` : ""}
         </p>
       )}
 
-      {status === "broken" && connection?.auth_failure_at && (
+      {viaOrganizationOnly && <p className="text-xs text-muted-foreground">{c.availableViaOrganization}</p>}
+
+      {isOwn && status === "attention" && (
+        <p className="text-xs text-amber-700 dark:text-amber-400">{attentionLine(connection, lang)}</p>
+      )}
+
+      {/* Kapot is niet meer alleen een ingetrokken toegang. Een sync die faalt
+          maakt de koppeling net zo goed kapot, en die klanten hebben vaak geen
+          org-token: Van Gestel heeft er nul. Zonder deze tak zou hun kaart rood
+          kleuren zonder een woord uitleg. */}
+      {isOwn && status === "broken" && (
         <p className="text-xs text-red-600 dark:text-red-400">
-          {c.brokenSince(formatDate(connection.auth_failure_at, lang))}
-          {connection.consecutive_failure_count && connection.consecutive_failure_count > 1
-            ? c.failedSyncs(connection.consecutive_failure_count)
+          {connection?.auth_failure_at
+            ? c.brokenSince(formatDate(connection.auth_failure_at, lang))
+            : connection?.last_sync_at
+              ? c.syncFailedOn(formatDate(connection.last_sync_at, lang))
+              : c.syncFailed}
+          {/* Expliciet vergelijken, niet op de waarheid van het getal leunen.
+              Bij een sync-fout zonder org-token is deze teller 0, en dan zou
+              "0 && ..." een kale nul op de kaart zetten. Van Gestel heeft geen
+              org-tokens, dus dat pad is echt bereikbaar. */}
+          {(connection?.consecutive_failure_count ?? 0) > 1
+            ? c.failedSyncs(connection?.consecutive_failure_count ?? 0)
             : ""}
         </p>
       )}
 
       <div className="flex gap-2 mt-auto">
-        {!platform.enabled ? (
+        {isOwn && (!CLIENT_SELF_SERVICE_CONNECT_ENABLED || !platform.enabled) ? (
+          // Loopt voor deze klant. Gaat voor op "Binnenkort", want een platform
+          // dat al data levert is niet iets van later. Geldt ook als de klant
+          // ooit zelf mag koppelen: YouTube heeft geen self-service-route.
+          <button
+            type="button"
+            disabled
+            className="flex-1 px-4 py-2 text-sm font-medium border border-border bg-background text-foreground rounded-lg cursor-default opacity-80"
+          >
+            {status === "broken" ? c.letStevinRepair : status === "attention" ? c.letStevinCheck : c.connectedButton}
+          </button>
+        ) : !platform.enabled ? (
           <button
             disabled
             className="flex-1 px-4 py-2 text-sm font-medium bg-muted text-muted-foreground rounded-lg cursor-not-allowed opacity-60"
@@ -578,9 +708,9 @@ function PlatformCard({
             disabled
             className="flex-1 px-4 py-2 text-sm font-medium border border-border bg-background text-foreground rounded-lg cursor-default opacity-80"
           >
-            {status === "connected" ? c.connectedButton : status === "broken" ? c.letStevinRepair : c.viaStevin}
+            {c.viaStevin}
           </button>
-        ) : status === "connected" ? (
+        ) : status === "connected" || status === "attention" ? (
           <button
             onClick={onConnect}
             disabled={isLoading}
@@ -615,10 +745,36 @@ function StatusBadge({ status, lang }: { status: ConnectionStatus; lang: Lang })
   if (status === "connected") {
     return <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400 font-medium">{c.badgeConnected}</span>;
   }
+  if (status === "attention") {
+    return <span className="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400 font-medium">{c.badgeAttention}</span>;
+  }
   if (status === "broken") {
     return <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400 font-medium">{c.badgeBroken}</span>;
   }
   return <span className="text-xs px-2 py-0.5 rounded-full bg-muted text-muted-foreground font-medium">{c.badgeNotConnected}</span>;
+}
+
+/**
+ * De reden uit de Hub omzetten naar een zin voor de klant.
+ *
+ * De rauwe error_message van de connector komt hier bewust niet in beeld. Die
+ * bevat dingen als API-payloads en env-variabelenamen, en dat is geen taal voor
+ * een klantscherm. De reden zelf is genoeg om te weten wat er aan de hand is.
+ */
+function attentionLine(connection: Connection | undefined, lang: Lang): string {
+  const c = COPY[lang];
+  switch (connection?.health_reason) {
+    case "no_data_yet":
+      return c.noDataYet;
+    case "data_stale":
+      return connection.last_data_at ? c.dataStale(formatDate(connection.last_data_at, lang)) : c.attentionGeneric;
+    case "sync_warning":
+      return c.syncWarning;
+    case "sync_stale":
+      return connection.last_sync_at ? c.syncStale(formatDate(connection.last_sync_at, lang)) : c.attentionGeneric;
+    default:
+      return c.attentionGeneric;
+  }
 }
 
 // ── Helpers ──

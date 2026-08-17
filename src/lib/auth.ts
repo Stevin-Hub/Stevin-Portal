@@ -10,6 +10,13 @@ const CLIENT_KEY = "stevin-portal-client";
 const TOKEN_KEY = "stevin-portal-token";
 const USER_KEY = "stevin-portal-user";
 
+// Taal van de klant, gespiegeld uit /me door useLanguage. Hoort bij de sessie
+// en niet bij het apparaat, dus sessionStorage. De sleutel staat hier bij de
+// andere opslagsleutels; useLanguage leest hem, setAuth en clearAuth halen hem
+// weg. Zonder dat opruimen krijgt de volgende klant in ditzelfde tabblad de
+// taal van de vorige.
+export const LANG_KEY = "stevin-portal-lang";
+
 export interface PortalUser {
   id: string;
   email: string;
@@ -36,6 +43,12 @@ export function getToken(): string | null {
   const params = new URLSearchParams(window.location.search);
   const impersonateParam = params.get("_t");
   if (impersonateParam) {
+    // Bekijk je in hetzelfde tabblad achter elkaar twee klanten, dan hoort de
+    // taal mee te wisselen. De gecachte taal is van de vorige klant, dus die
+    // gaat weg zodra er een ander token binnenkomt.
+    if (sessionStorage.getItem(IMPERSONATE_KEY) !== impersonateParam) {
+      sessionStorage.removeItem(LANG_KEY);
+    }
     sessionStorage.setItem(IMPERSONATE_KEY, impersonateParam);
     return impersonateParam;
   }
@@ -92,6 +105,9 @@ export function getClient(): PortalClient | null {
 }
 
 export function setAuth(token: string, user: PortalUser, client: PortalClient | null) {
+  // Nieuwe login, dus de bewaarde taal is die van de vorige klant. Weg ermee,
+  // /me bepaalt hem opnieuw.
+  sessionStorage.removeItem(LANG_KEY);
   if (token) localStorage.setItem(TOKEN_KEY, token);
   if (user) localStorage.setItem(USER_KEY, JSON.stringify(user));
   if (client) localStorage.setItem(CLIENT_KEY, JSON.stringify(client));
@@ -104,6 +120,7 @@ export function clearAuth() {
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(USER_KEY);
   sessionStorage.removeItem(IMPERSONATE_KEY);
+  sessionStorage.removeItem(LANG_KEY);
 }
 
 export function isLoggedIn(): boolean {

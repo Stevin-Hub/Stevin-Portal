@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { portalFetch } from "@/lib/api";
-import { useLanguage, type Lang } from "@/lib/useLanguage";
+import { useLanguage, useLanguageReady, type Lang } from "@/lib/useLanguage";
 
 /** Waarden die naar de API gaan. Blijven ongewijzigd, alleen het label vertaalt. */
 const CATEGORY_VALUES = ["bug", "verbetering", "idee"] as const;
@@ -53,6 +53,7 @@ const COPY: Record<Lang, Copy> = {
 
 export function FeedbackWidget() {
   const lang = useLanguage();
+  const langReady = useLanguageReady();
   const c = COPY[lang];
   const [open, setOpen] = useState(false);
   const [category, setCategory] = useState<CategoryValue>("verbetering");
@@ -107,6 +108,11 @@ export function FeedbackWidget() {
       setSending(false);
     }
   }
+
+  // Zwevende knop met een tooltip en een aria-label in de klanttaal. Zolang die
+  // taal niet vaststaat tonen we hem niet, dat scheelt een knop die na een
+  // halve tel van taal wisselt.
+  if (!langReady) return null;
 
   return (
     <div ref={widgetRef} className="fixed bottom-4 right-4 z-50">

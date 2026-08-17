@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { portalFetch } from "@/lib/api";
-import { useLanguage, type Lang } from "@/lib/useLanguage";
+import { useLanguage, useLanguageReady, type Lang } from "@/lib/useLanguage";
 import { toast } from "sonner";
 import { ShieldCheck, FileText } from "lucide-react";
 
@@ -195,6 +195,7 @@ const COPY: Record<Lang, Copy> = {
 
 export default function TermsModal({ onAccepted }: TermsModalProps) {
   const lang = useLanguage();
+  const langReady = useLanguageReady();
   const c = COPY[lang];
   const [checked, setChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -211,6 +212,10 @@ export default function TermsModal({ onAccepted }: TermsModalProps) {
       setSubmitting(false);
     }
   }
+
+  // Voorwaarden accepteren is niets om half vertaald voor te leggen. Zolang de
+  // taal uit /me nog niet vaststaat blijft het scherm eronder zichtbaar.
+  if (!langReady) return null;
 
   return (
     <div className="fixed inset-0 z-[100] bg-background flex items-center justify-center p-4">

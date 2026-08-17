@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { portalFetch } from "@/lib/api";
-import { useLanguage, localeFor, type Lang } from "@/lib/useLanguage";
+import { useLanguage, useLanguageReady, localeFor, type Lang } from "@/lib/useLanguage";
 import AuthGuard from "@/components/AuthGuard";
 import { toast } from "sonner";
 import { Package, Star, Check, ArrowRight, Sparkles, TrendingUp, Zap } from "lucide-react";
@@ -118,6 +118,7 @@ export default function ServicesPage() {
 
 function ServicesContent() {
   const lang = useLanguage();
+  const langReady = useLanguageReady();
   const c = COPY[lang];
   const [data, setData] = useState<ServicesData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -129,7 +130,9 @@ function ServicesContent() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
+  // langReady erbij: de taal komt uit /me en tot die er is klopt geen enkele
+  // zin op dit scherm. De spinner heeft geen taal, dus die kan blijven staan.
+  if (loading || !langReady) {
     return (
       <div className="flex justify-center py-12">
         <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />

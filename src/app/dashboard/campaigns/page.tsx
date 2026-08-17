@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { portalFetch } from "@/lib/api";
-import { useLanguage, localeFor, type Lang } from "@/lib/useLanguage";
+import { useLanguage, useLanguageReady, localeFor, type Lang } from "@/lib/useLanguage";
 import AuthGuard from "@/components/AuthGuard";
 import { toast } from "sonner";
 import { Pause, Play, TrendingDown, TrendingUp, Clock, CheckCircle, XCircle, ShieldAlert, AlertTriangle } from "lucide-react";
@@ -150,6 +150,7 @@ export default function CampaignsPage() {
 
 function CampaignsContent({ userRole }: { userRole: string }) {
   const lang = useLanguage();
+  const langReady = useLanguageReady();
   const c = COPY[lang];
   const isOwner = userRole === "admin";
   const [requests, setRequests] = useState<ActionRequest[]>([]);
@@ -233,6 +234,17 @@ function CampaignsContent({ userRole }: { userRole: string }) {
     } finally {
       setConfirming(false);
     }
+  }
+
+  // De taal komt uit /me. Tot die binnen is klopt geen enkele zin op dit
+  // scherm, ook de kop niet, dus tonen we hetzelfde rondje als bij het laden
+  // van de data.
+  if (!langReady) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
   }
 
   return (

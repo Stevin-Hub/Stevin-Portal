@@ -6,7 +6,7 @@ import AuthGuard from "@/components/AuthGuard";
 import { toast } from "sonner";
 import { Calendar, Mail, User, ExternalLink, Radio } from "lucide-react";
 import { useGlobalAlerts } from "@/components/GlobalAlertBanner";
-import { useLanguage, type Lang } from "@/lib/useLanguage";
+import { useLanguage, useLanguageReady, type Lang } from "@/lib/useLanguage";
 
 interface AccountData {
   client: {
@@ -79,6 +79,7 @@ function ContactContent() {
   const globalAlerts = useGlobalAlerts();
   const hasGlobalIssue = globalAlerts.length > 0;
   const lang = useLanguage();
+  const langReady = useLanguageReady();
   const c = COPY[lang];
 
   useEffect(() => {
@@ -88,7 +89,9 @@ function ContactContent() {
       .finally(() => setLoading(false));
   }, []);
 
-  if (loading) {
+  // langReady erbij: de taal komt uit /me en tot die er is klopt geen enkele
+  // zin op dit scherm. De spinner heeft geen taal, dus die kan blijven staan.
+  if (loading || !langReady) {
     return (
       <div className="flex justify-center py-12">
         <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />

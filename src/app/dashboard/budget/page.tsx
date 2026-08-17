@@ -13,7 +13,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { portalFetch } from "@/lib/api";
-import { useLanguage, localeFor, type Lang } from "@/lib/useLanguage";
+import { useLanguage, useLanguageReady, localeFor, type Lang } from "@/lib/useLanguage";
 import AuthGuard from "@/components/AuthGuard";
 import { toast } from "sonner";
 import { Check, X, ExternalLink, Wallet, Clock } from "lucide-react";
@@ -108,6 +108,7 @@ export default function BudgetPage() {
 
 function BudgetContent({ userRole }: { userRole: string }) {
   const lang = useLanguage();
+  const langReady = useLanguageReady();
   const c = COPY[lang];
   const locale = localeFor(lang);
   const canDecide = userRole === "admin" || userRole === "medewerker";
@@ -175,6 +176,16 @@ function BudgetContent({ userRole }: { userRole: string }) {
     rejected: { label: c.statusRejected, color: "text-danger", bg: "bg-danger-light" },
     paid: { label: c.statusPaid, color: "text-success", bg: "bg-success-light" },
   };
+
+  // De taal komt uit /me. Tot die binnen is klopt geen enkele zin op dit
+  // scherm, dus tonen we hetzelfde rondje als bij het laden van de data.
+  if (!langReady) {
+    return (
+      <div className="flex justify-center py-12">
+        <div className="w-8 h-8 border-2 border-accent border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   return (
     <div>
