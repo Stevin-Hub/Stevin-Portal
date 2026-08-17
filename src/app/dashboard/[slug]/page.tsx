@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { isLoggedIn, getClient } from "@/lib/auth";
+import { portalFetch } from "@/lib/api";
 import { useLanguage } from "@/lib/useLanguage";
 
 const COPY = {
@@ -31,14 +32,19 @@ export default function SlugDashboardPage() {
       return;
     }
 
+    // Zelfde reden als op de koppelingen-pagina: localStorage houdt de eigen
+    // login vast, /me beweegt mee met het actieve token.
     const client = getClient();
     if (client?.slug === slug) {
-      // Slug matches logged-in client, show their dashboard
       router.replace("/dashboard");
-    } else {
-      // Slug doesn't match, no access
-      setStatus("denied");
+      return;
     }
+    portalFetch<{ client?: { slug?: string } | null }>("/me")
+      .then((me) => {
+        if (me.client?.slug === slug) router.replace("/dashboard");
+        else setStatus("denied");
+      })
+      .catch(() => setStatus("denied"));
   }, [slug, router]);
 
   if (status === "denied") {

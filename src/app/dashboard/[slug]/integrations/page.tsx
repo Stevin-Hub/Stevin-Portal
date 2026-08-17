@@ -381,12 +381,17 @@ export default function IntegrationsPage() {
       router.replace("/login");
       return;
     }
+    // localStorage houdt de EIGEN login vast. Bij meekijken staat daar dus de
+    // consultant in en niet de klant, en dan weigerde deze pagina ten onrechte.
+    // /me beweegt wel mee met het actieve token, dus dat is de waarheid.
     const client = getClient();
-    if (!client || client.slug !== slug) {
-      setAuthState("denied");
+    if (client?.slug === slug) {
+      setAuthState("ok");
       return;
     }
-    setAuthState("ok");
+    portalFetch<{ client?: { slug?: string } | null }>("/me")
+      .then((me) => setAuthState(me.client?.slug === slug ? "ok" : "denied"))
+      .catch(() => setAuthState("denied"));
   }, [slug, router]);
 
   // Read OAuth callback toasts (?platform=meta&connected=1 / ?error=...)

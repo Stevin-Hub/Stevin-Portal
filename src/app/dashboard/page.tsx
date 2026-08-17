@@ -35,7 +35,7 @@ interface DashboardData {
   period: { days: number; since: string };
   message?: string;
   /** Machineleesbare reden bij een lege staat, zodat het portaal zelf de taal kiest. */
-  reason?: "no_campaigns_linked" | "no_data_yet";
+  reason?: "no_campaigns_linked" | "no_data_yet" | "creator_only";
 }
 
 interface Report {
@@ -51,6 +51,8 @@ interface Copy {
   headline: string;
   emptyBody: string;
   emptyBodyNoData: string;
+  emptyBodyCreator: string;
+  toCreator: string;
   manageIntegrations: string;
   connectFailed: (reason: string) => string;
   connectErrors: Record<string, string>;
@@ -109,6 +111,9 @@ const COPY: Record<Lang, Copy> = {
       "Er is nog geen campagnedata beschikbaar. Koppel eerst je kanalen, dan verschijnt hier wat veranderde en wat aandacht vraagt.",
     emptyBodyNoData:
       "Je kanalen zijn gekoppeld, maar er is over deze periode nog geen data binnengekomen.",
+    emptyBodyCreator:
+      "Er lopen geen advertenties voor je. De cijfers van je eigen kanaal staan bij Creator.",
+    toCreator: "Naar Creator",
     manageIntegrations: "Koppelingen beheren",
     connectFailed: (reason) => `Koppelen mislukt: ${reason}`,
     connectErrors: {
@@ -180,6 +185,9 @@ const COPY: Record<Lang, Copy> = {
       "There is no campaign data yet. Connect your channels first, then you will see here what changed and what needs attention.",
     emptyBodyNoData:
       "Your channels are connected, but no data has come in for this period yet.",
+    emptyBodyCreator:
+      "There are no ads running for you. The numbers for your own channel are on the Creator tab.",
+    toCreator: "Go to Creator",
     manageIntegrations: "Manage integrations",
     connectFailed: (reason) => `Connecting failed: ${reason}`,
     connectErrors: {
@@ -476,15 +484,30 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
           </div>
         </div>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          {data?.reason === "no_data_yet" ? c.emptyBodyNoData : c.emptyBody}
+          {data?.reason === "creator_only"
+            ? c.emptyBodyCreator
+            : data?.reason === "no_data_yet"
+              ? c.emptyBodyNoData
+              : c.emptyBody}
         </p>
-        {slug && (
+        {/* Een creator-klant heeft niets aan een koppelknop: zijn kanaal hangt
+            er al aan, zijn cijfers staan alleen op een ander tabblad. */}
+        {data?.reason === "creator_only" ? (
           <Link
-            href={`/dashboard/${slug}/integrations`}
+            href="/dashboard/creator"
             className="mt-5 inline-flex rounded-full bg-foreground px-5 py-2.5 text-[13px] font-semibold text-background"
           >
-            {c.manageIntegrations}
+            {c.toCreator}
           </Link>
+        ) : (
+          slug && (
+            <Link
+              href={`/dashboard/${slug}/integrations`}
+              className="mt-5 inline-flex rounded-full bg-foreground px-5 py-2.5 text-[13px] font-semibold text-background"
+            >
+              {c.manageIntegrations}
+            </Link>
+          )
         )}
       </section>
     );

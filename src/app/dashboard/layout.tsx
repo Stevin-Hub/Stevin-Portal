@@ -35,6 +35,9 @@ const NAV_ITEMS = [
   // {slug} wordt client-side ingevuld via clientSlug. adminOnly houdt 'm bij
   // de eigenaar: accounts koppelen is een eigenaarshandeling, net als de
   // campagne-aanvragen die de Hub op rol admin afschermt (owner_only_request).
+  // Bij meekijken tonen we het item wel. De consultant krijgt van de Hub altijd
+  // de rol stagiair, dus schrijven blijft geblokkeerd, maar de banner belooft
+  // "dit is wat de klant ziet" en dan hoort het menu ook te kloppen.
   { href: "/dashboard/__SLUG__/integrations", label: { nl: "Koppelingen", en: "Integrations" }, icon: Plug, adminOnly: true, slugSlot: true },
   { href: "/dashboard/account", label: { nl: "Account", en: "Account" }, icon: UserCircle },
 ];
@@ -178,7 +181,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {NAV_ITEMS
             .filter((item) => !('hideForAgency' in item && item.hideForAgency) || (orgType !== "agency" && orgType !== "agency_client"))
             .filter((item) => !('creatorOnly' in item && item.creatorOnly) || isCreator)
-            .filter((item) => !('adminOnly' in item && item.adminOnly) || isAdmin)
+            .filter((item) => !('adminOnly' in item && item.adminOnly) || isAdmin || impersonating)
             .filter((item) => !('slugSlot' in item && item.slugSlot) || clientSlug !== "")
             .map((item) => {
             const href = item.slugSlot ? item.href.replace("__SLUG__", clientSlug) : item.href;
@@ -237,7 +240,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               {NAV_ITEMS
                 .filter((item) => !('hideForAgency' in item && item.hideForAgency) || (orgType !== "agency" && orgType !== "agency_client"))
                 .filter((item) => !('creatorOnly' in item && item.creatorOnly) || isCreator)
-                .filter((item) => !('adminOnly' in item && item.adminOnly) || isAdmin)
+                .filter((item) => !('adminOnly' in item && item.adminOnly) || isAdmin || impersonating)
                 .filter((item) => !('slugSlot' in item && item.slugSlot) || clientSlug !== "")
                 .map((item) => {
                 const isActive = pathname === item.href;
