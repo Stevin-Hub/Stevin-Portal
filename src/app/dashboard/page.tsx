@@ -66,6 +66,9 @@ interface Copy {
   emptyBody: string;
   emptyBodyNoData: string;
   emptyBodyCreator: string;
+  loadFailedTitle: string;
+  loadFailedBody: string;
+  retry: string;
   toCreator: string;
   manageIntegrations: string;
   connectFailed: (reason: string) => string;
@@ -132,6 +135,10 @@ const COPY: Record<Lang, Copy> = {
       "Je kanalen zijn gekoppeld, maar er is over deze periode nog geen data binnengekomen.",
     emptyBodyCreator:
       "Er lopen geen advertenties voor je. De cijfers van je eigen kanaal staan bij Creator.",
+    loadFailedTitle: "We konden je cijfers niet ophalen",
+    loadFailedBody:
+      "Dit ligt aan ons, niet aan jouw koppelingen. Probeer het zo opnieuw. Blijft het staan, laat het ons weten via Contact.",
+    retry: "Opnieuw proberen",
     toCreator: "Naar Creator",
     manageIntegrations: "Koppelingen beheren",
     connectFailed: (reason) => `Koppelen mislukt: ${reason}`,
@@ -207,6 +214,10 @@ const COPY: Record<Lang, Copy> = {
       "Your channels are connected, but no data has come in for this period yet.",
     emptyBodyCreator:
       "There are no ads running for you. The numbers for your own channel are on the Creator tab.",
+    loadFailedTitle: "We could not load your numbers",
+    loadFailedBody:
+      "This is on our side, not on your integrations. Please try again shortly. If it keeps happening, let us know through Contact.",
+    retry: "Try again",
     toCreator: "Go to Creator",
     manageIntegrations: "Manage integrations",
     connectFailed: (reason) => `Connecting failed: ${reason}`,
@@ -415,6 +426,8 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
   // platform, net als bij goedkeuringen en budget.
   const [connectError, setConnectError] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [herlaad, setHerlaad] = useState(0);
   const [reports, setReports] = useState<Report[]>([]);
   const [period, setPeriod] = useState(30);
   const [loading, setLoading] = useState(true);
@@ -454,6 +467,7 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
 
   useEffect(() => {
     setLoading(true);
+    setLoadFailed(false);
     Promise.all([
       portalFetch<DashboardData>(`/dashboard?days=${period}`),
       portalFetch<{ reports: Report[] }>("/reports").catch(() => ({ reports: [] })),
@@ -462,9 +476,15 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
         setData(dashboard);
         setReports(reportData.reports);
       })
-      .catch((err) => toast.error(err.message))
+      .catch((err) => {
+        // Een storing is iets anders dan geen data. Zonder deze staat zou het
+        // scherm "koppel eerst je kanalen" tonen terwijl de koppelingen prima
+        // zijn en onze kant het liet afweten.
+        setLoadFailed(true);
+        toast.error(err.message);
+      })
       .finally(() => setLoading(false));
-  }, [period]);
+  }, [period, herlaad]);
 
   const surface = useMemo(() => {
     if (!data?.kpis) return null;
@@ -507,6 +527,18 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
             <p className="mt-0.5 text-sm text-muted-foreground">{clientName}</p>
           </div>
         </div>
+        {loadFailed ? (
+          <>
+            <p className="max-w-2xl text-sm text-muted-foreground">{c.loadFailedBody}</p>
+            <button
+              onClick={() => setHerlaad((n) => n + 1)}
+              className="mt-5 inline-flex rounded-full bg-foreground px-5 py-2.5 text-[13px] font-semibold text-background"
+            >
+              {c.retry}
+            </button>
+          </>
+        ) : (
+        <>
         <p className="max-w-2xl text-sm text-muted-foreground">
           {data?.reason === "creator_only"
             ? c.emptyBodyCreator
@@ -532,6 +564,8 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
               {c.manageIntegrations}
             </Link>
           )
+        )}
+        </>
         )}
       </section>
     );

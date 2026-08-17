@@ -30,6 +30,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || "https://hub.stevin.ai";
 export type PortalErrorCode =
   | "account_load_failed"
   | "account_not_active"
+  | "action_confirm_escalation_failed"
   | "action_confirm_failed"
   | "action_request_failed"
   | "action_requests_load_failed"
@@ -54,6 +55,7 @@ export type PortalErrorCode =
   | "creator_videos_load_failed"
   | "dashboard_load_failed"
   | "decision_failed"
+  | "decision_tokens_not_invalidated"
   | "email_required"
   | "feedback_failed"
   | "feedback_message_required"
@@ -72,6 +74,7 @@ export type PortalErrorCode =
   | "owner_only_confirm"
   | "owner_only_request"
   | "portal_admin_required"
+  | "portal_fetch_failed"
   | "proposal_not_found_or_decided"
   | "reports_load_failed"
   | "server_error"
@@ -81,6 +84,7 @@ export type PortalErrorCode =
   | "token_limit_reached"
   | "token_required"
   | "unsupported_platform"
+  | "usage_check_unavailable"
   | "user_not_found"
   | "verification_failed";
 
@@ -89,7 +93,12 @@ export type PortalErrorCode =
  * (confirmActionRequest krijgt de taal mee). Een vaste zin hier zou juist de
  * reden weggooien, dus voor deze codes wint de servertekst.
  */
-const PASSTHROUGH_CODES = new Set<string>(["action_confirm_rejected"]);
+// De Hub schrijft deze twee per geval, met de reden erin. Een vaste zin hier
+// zou juist die reden weggooien.
+const PASSTHROUGH_CODES = new Set<string>([
+  "action_confirm_rejected",
+  "action_confirm_escalation_failed",
+]);
 
 /** Error met de code erbij, zodat schermen niet op tekst hoeven te matchen. */
 export interface PortalError extends Error {
@@ -101,6 +110,28 @@ export interface PortalError extends Error {
 // Nederlandse zin die de klant hoort te lezen. De en-variant is voor klanten
 // met advisor_language = en.
 const ERROR_COPY: Record<PortalErrorCode, { nl: string; en: string }> = {
+  // 17 aug 2026: de Hub maakt onderscheid tussen "er is niets" en "we konden
+  // het niet ophalen". Zonder deze vier zinnen leest de klant de generieke
+  // melding en blijft het scherm de lege staat tonen, wat juist de onwaarheid
+  // was die we weghaalden.
+  portal_fetch_failed: {
+    nl: "We konden je gegevens nu niet ophalen. Probeer het zo opnieuw",
+    en: "We could not load your data just now. Please try again shortly",
+  },
+  usage_check_unavailable: {
+    nl: "We konden je verbruik niet controleren, dus de chat staat even stil",
+    en: "We could not check your usage, so the chat is paused for a moment",
+  },
+  // Staat ook in PASSTHROUGH_CODES: de Hub schrijft hier een zin met de reden.
+  // Deze vertaling is de terugval als die zin ontbreekt.
+  action_confirm_escalation_failed: {
+    nl: "Je bevestiging is binnen, maar het doorzetten naar je specialist lukte niet. Via het tabblad Contact pakken we het alsnog op",
+    en: "Your confirmation came through, but passing it to your specialist failed. Use the Contact tab and we will still pick it up",
+  },
+  decision_tokens_not_invalidated: {
+    nl: "Je keuze is verwerkt, maar een oude link uit je mail werkt mogelijk nog. Gebruik het portaal",
+    en: "Your decision was saved, but an older link from your email may still work. Please use the portal",
+  },
   // Fouten uit de koppelflow (portalConnect). Alleen server_error is vandaag
   // bereikbaar; de rest zit achter de zelfbedien-vlag die nog uit staat.
   client_without_organization: {
