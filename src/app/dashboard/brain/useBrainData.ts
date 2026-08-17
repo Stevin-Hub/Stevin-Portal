@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { portalFetch } from "@/lib/api";
+import { currentLang, pick, type Lang } from "@/lib/useLanguage";
 
 // Data-contract van GET /api/portal/brain. Bewust geen interne velden
 // (geen scores, geen source-ids, geen signalen of acties). Toon alleen
@@ -126,12 +127,26 @@ export interface UseBrainDataResult {
   error: string | null;
 }
 
+// Laatste redmiddel: alleen als er iets wordt gegooid dat geen Error is. De
+// gewone fout komt vertaald uit portalFetch (code brain_load_failed).
+const FALLBACK_ERROR = {
+  nl: "Kon het geheugen niet laden.",
+  en: "Could not load the memory.",
+};
+
 // Typed fetcher met nette fallback: bij een fout krijg je een lege graaf
-// (geen crash) plus een leesbare foutmelding voor de UI.
-export function useBrainData(): UseBrainDataResult {
+// (geen crash) plus een leesbare foutmelding voor de UI. De taal mag mee, zodat
+// de pagina de klanttaal uit /me kan doorgeven; zonder argument pakt de hook de
+// gecachte taal, dezelfde die de rest van het portaal gebruikt.
+export function useBrainData(lang?: Lang): UseBrainDataResult {
   const [data, setData] = useState<BrainData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  // De fetch draait eenmalig, de taal kan later binnenkomen; via de ref pakt de
+  // foutmelding de taal die op het moment van falen bekend is.
+  const langRef = useRef<Lang | undefined>(lang);
+  langRef.current = lang;
 
   useEffect(() => {
     let active = true;
@@ -144,7 +159,11 @@ export function useBrainData(): UseBrainDataResult {
       })
       .catch((err: unknown) => {
         if (!active) return;
-        setError(err instanceof Error ? err.message : "Kon het geheugen niet laden.");
+        setError(
+          err instanceof Error
+            ? err.message
+            : pick(langRef.current ?? currentLang(), FALLBACK_ERROR),
+        );
         setData(EMPTY_BRAIN);
       })
       .finally(() => {

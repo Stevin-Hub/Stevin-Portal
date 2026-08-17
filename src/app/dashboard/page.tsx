@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
 import { portalFetch } from "@/lib/api";
 import { getClient } from "@/lib/auth";
@@ -51,6 +52,8 @@ interface Copy {
   emptyBody: string;
   emptyBodyNoData: string;
   manageIntegrations: string;
+  connectFailed: (reason: string) => string;
+  connectErrors: Record<string, string>;
   kpiSpend: string;
   kpiSpendContext: (cpc: string) => string;
   kpiReach: string;
@@ -107,6 +110,21 @@ const COPY: Record<Lang, Copy> = {
     emptyBodyNoData:
       "Je kanalen zijn gekoppeld, maar er is over deze periode nog geen data binnengekomen.",
     manageIntegrations: "Koppelingen beheren",
+    connectFailed: (reason) => `Koppelen mislukt: ${reason}`,
+    connectErrors: {
+      denied: "je hebt de toegang geweigerd",
+      state_expired: "de koppel-link is verlopen, start het koppelen opnieuw",
+      pkce_missing: "de koppel-sessie is onderweg verlopen, start het koppelen opnieuw",
+      token_exchange_failed: "het platform gaf geen toegang terug, probeer het opnieuw",
+      long_token_failed: "het platform gaf geen toegang terug, probeer het opnieuw",
+      no_refresh_token:
+        "de koppeling gaf geen blijvende toegang terug. Trek de toegang in bij het platform en koppel opnieuw",
+      tiktok_api_error: "TikTok gaf een foutmelding terug, probeer het over een paar minuten opnieuw",
+      invalid_callback: "het platform stuurde een onvolledig antwoord terug, probeer het opnieuw",
+      callback_failed: "het koppelen is niet afgerond, probeer het opnieuw",
+      server_error: "er ging iets mis aan onze kant, probeer het later opnieuw",
+      generic: "het koppelen lukte niet, probeer het opnieuw of laat het ons weten",
+    },
     kpiSpend: "Investering",
     kpiSpendContext: (cpc) => `${cpc} per klik`,
     kpiReach: "Bereik",
@@ -163,6 +181,21 @@ const COPY: Record<Lang, Copy> = {
     emptyBodyNoData:
       "Your channels are connected, but no data has come in for this period yet.",
     manageIntegrations: "Manage integrations",
+    connectFailed: (reason) => `Connecting failed: ${reason}`,
+    connectErrors: {
+      denied: "you denied access",
+      state_expired: "the connection link has expired, please start again",
+      pkce_missing: "the connection session expired along the way, please start again",
+      token_exchange_failed: "the platform did not hand back access, please try again",
+      long_token_failed: "the platform did not hand back access, please try again",
+      no_refresh_token:
+        "the connection did not hand back lasting access. Revoke the access at the platform and connect again",
+      tiktok_api_error: "TikTok returned an error, please try again in a few minutes",
+      invalid_callback: "the platform sent back an incomplete answer, please try again",
+      callback_failed: "the connection was not completed, please try again",
+      server_error: "something went wrong on our side, please try again later",
+      generic: "connecting did not work, please try again or let us know",
+    },
     kpiSpend: "Investment",
     kpiSpendContext: (cpc) => `${cpc} per click`,
     kpiReach: "Reach",
@@ -213,6 +246,28 @@ const COPY: Record<Lang, Copy> = {
 };
 
 const PERIODS = [7, 14, 30];
+
+/**
+ * Foutcode van de Hub omzetten naar een zin voor de klant.
+ *
+ * Loopt een koppeling stuk voordat de Hub weet naar welke klant hij terug moet,
+ * dan komt de klant hier binnen op /dashboard?platform=meta&error=denied. De
+ * codes: denied, invalid_callback, state_expired, pkce_missing,
+ * token_exchange_failed, long_token_failed, no_refresh_token, tiktok_api_error
+ * en server_error. Oudere links dragen nog de platformvariant
+ * meta_callback_failed, google_ads_callback_failed,
+ * google_analytics_callback_failed, google_search_console_callback_failed,
+ * google_tag_manager_callback_failed, linkedin_callback_failed,
+ * tiktok_callback_failed, x_callback_failed of snapchat_callback_failed; die
+ * krijgen allemaal dezelfde zin. Onbekende codes vallen terug op een algemene
+ * zin, nooit op de kale code.
+ */
+function connectErrorText(code: string, lang: Lang): string {
+  const errors = COPY[lang].connectErrors;
+  if (errors[code]) return errors[code];
+  if (code.endsWith("_callback_failed")) return errors.callback_failed;
+  return errors.generic;
+}
 
 function fmtNum(n: number, locale: string): string {
   if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
@@ -309,19 +364,63 @@ function DecisionCard({
 export default function DashboardPage() {
   return (
     <AuthGuard>
-      {(_user, client) => <DashboardContent clientName={client?.name || ""} />}
+      {(_user, client) => (
+        <DashboardContent clientName={client?.name || ""} clientSlug={client?.slug || ""} />
+      )}
     </AuthGuard>
   );
 }
 
-function DashboardContent({ clientName }: { clientName: string }) {
+function DashboardContent({ clientName, clientSlug }: { clientName: string; clientSlug: string }) {
   const lang = useLanguage();
   const c = COPY[lang];
   const locale = localeFor(lang);
+  const router = useRouter();
+  const pathname = usePathname();
+  // Een koppeling die stukloopt voordat de Hub de slug kent, komt hier terug
+  // met ?platform=...&error=... Zonder deze melding stond de klant weer op zijn
+  // overzicht alsof er niets was gebeurd. De code komt uit
+  // window.location.search en niet uit useSearchParams, zodat deze pagina geen
+  // Suspense-grens nodig heeft; het is altijd een verse lading vanaf het
+  // platform, net als bij goedkeuringen en budget.
+  const [connectError, setConnectError] = useState<string | null>(null);
   const [data, setData] = useState<DashboardData | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
   const [period, setPeriod] = useState(30);
   const [loading, setLoading] = useState(true);
+  // De knop naar de koppelingen bouwt /dashboard/<slug>/integrations. Zonder
+  // slug werd dat /dashboard//integrations, een dode pagina. De slug komt uit
+  // de sessie; bij de Google-login staat die niet in localStorage, dan haalt
+  // /me hem alsnog op. Blijft hij leeg, dan tonen we de knop niet.
+  const [slug, setSlug] = useState(clientSlug || getClient()?.slug || "");
+
+  useEffect(() => {
+    const code = new URLSearchParams(window.location.search).get("error");
+    if (!code) return;
+    setConnectError(code);
+    // Parameter uit de URL halen, anders herhaalt elke refresh de melding.
+    router.replace(pathname);
+  }, [router, pathname]);
+
+  useEffect(() => {
+    if (!connectError) return;
+    // Vaste id: komt de taal van de klant een tel later binnen, dan vervangt de
+    // melding zichzelf in plaats van er een tweede naast te zetten.
+    toast.error(c.connectFailed(connectErrorText(connectError, lang)), { id: "portal-connect-error" });
+  }, [connectError, lang, c]);
+
+  useEffect(() => {
+    if (slug) return;
+    let active = true;
+    portalFetch<{ client?: { slug?: string } | null }>("/me")
+      .then((me) => {
+        if (active && me.client?.slug) setSlug(me.client.slug);
+      })
+      .catch(() => {});
+    return () => {
+      active = false;
+    };
+  }, [slug]);
 
   useEffect(() => {
     setLoading(true);
@@ -379,12 +478,14 @@ function DashboardContent({ clientName }: { clientName: string }) {
         <p className="max-w-2xl text-sm text-muted-foreground">
           {data?.reason === "no_data_yet" ? c.emptyBodyNoData : c.emptyBody}
         </p>
-        <Link
-          href={`/dashboard/${getClient()?.slug || ""}/integrations`}
-          className="mt-5 inline-flex rounded-full bg-foreground px-5 py-2.5 text-[13px] font-semibold text-background"
-        >
-          {c.manageIntegrations}
-        </Link>
+        {slug && (
+          <Link
+            href={`/dashboard/${slug}/integrations`}
+            className="mt-5 inline-flex rounded-full bg-foreground px-5 py-2.5 text-[13px] font-semibold text-background"
+          >
+            {c.manageIntegrations}
+          </Link>
+        )}
       </section>
     );
   }

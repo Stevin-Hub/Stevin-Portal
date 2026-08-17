@@ -141,8 +141,12 @@ function ChatContent({ userName }: { userName: string }) {
       setMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
       if (data.usage) setUsage(data.usage);
     } catch (err: any) {
-      // Check if it's a token limit error
-      if (err.message?.includes("Tokenlimiet")) {
+      // Op de code testen, niet op de tekst: die wordt vertaald zodra de klant
+      // op Engels staat. De tekstcheck blijft als terugval zolang er nog een
+      // Hub-versie zonder errorCode kan draaien.
+      const isTokenLimit =
+        err?.code === "token_limit_reached" || err?.message?.includes("Tokenlimiet");
+      if (isTokenLimit) {
         setLimitReached(true);
         setMessages((prev) => [
           ...prev,

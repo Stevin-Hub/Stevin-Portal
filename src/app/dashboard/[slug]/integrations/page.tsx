@@ -249,11 +249,17 @@ const COPY: Record<Lang, Copy> = {
     errors: {
       meta_denied: "je hebt de toegang geweigerd",
       denied: "je hebt de toegang geweigerd",
-      state_expired: "de koppel-link is verlopen, probeer opnieuw",
-      token_exchange_failed: "het uitwisselen van de toegangscode lukte niet",
-      long_token_failed: "het uitwisselen van de toegangscode lukte niet",
-      invalid_callback: "ongeldige callback van het platform",
-      server_error: "interne fout, probeer later opnieuw",
+      state_expired: "de koppel-link is verlopen, start het koppelen opnieuw",
+      pkce_missing: "de koppel-sessie is onderweg verlopen, start het koppelen opnieuw",
+      token_exchange_failed: "het platform gaf geen toegang terug, probeer het opnieuw",
+      long_token_failed: "het platform gaf geen toegang terug, probeer het opnieuw",
+      no_refresh_token:
+        "de koppeling gaf geen blijvende toegang terug. Trek de toegang in bij het platform en koppel opnieuw",
+      tiktok_api_error: "TikTok gaf een foutmelding terug, probeer het over een paar minuten opnieuw",
+      invalid_callback: "het platform stuurde een onvolledig antwoord terug, probeer het opnieuw",
+      callback_failed: "het koppelen is niet afgerond, probeer het opnieuw",
+      server_error: "er ging iets mis aan onze kant, probeer het later opnieuw",
+      generic: "het koppelen lukte niet, probeer het opnieuw of laat het ons weten",
     },
     minutesAgo: (value) => `${value} min geleden`,
     hoursAgo: (value) => `${value}u geleden`,
@@ -330,11 +336,17 @@ const COPY: Record<Lang, Copy> = {
     errors: {
       meta_denied: "you denied access",
       denied: "you denied access",
-      state_expired: "the connection link has expired, please try again",
-      token_exchange_failed: "exchanging the access code did not work",
-      long_token_failed: "exchanging the access code did not work",
-      invalid_callback: "invalid callback from the platform",
-      server_error: "internal error, please try again later",
+      state_expired: "the connection link has expired, please start again",
+      pkce_missing: "the connection session expired along the way, please start again",
+      token_exchange_failed: "the platform did not hand back access, please try again",
+      long_token_failed: "the platform did not hand back access, please try again",
+      no_refresh_token:
+        "the connection did not hand back lasting access. Revoke the access at the platform and connect again",
+      tiktok_api_error: "TikTok returned an error, please try again in a few minutes",
+      invalid_callback: "the platform sent back an incomplete answer, please try again",
+      callback_failed: "the connection was not completed, please try again",
+      server_error: "something went wrong on our side, please try again later",
+      generic: "connecting did not work, please try again or let us know",
     },
     minutesAgo: (value) => `${value} min ago`,
     hoursAgo: (value) => `${value}h ago`,
@@ -611,8 +623,27 @@ function labelFor(platformId: string): string {
   return p?.name || platformId;
 }
 
+/**
+ * Foutcode van de Hub omzetten naar een zin voor de klant.
+ *
+ * De Hub stuurt sinds de aanpassing van portalConnect.ts alleen kale redenen
+ * mee: denied, invalid_callback, state_expired, pkce_missing,
+ * token_exchange_failed, long_token_failed, no_refresh_token, tiktok_api_error
+ * en server_error. Oudere links dragen nog de platformvariant
+ * meta_callback_failed, google_ads_callback_failed,
+ * google_analytics_callback_failed, google_search_console_callback_failed,
+ * google_tag_manager_callback_failed, linkedin_callback_failed,
+ * tiktok_callback_failed, x_callback_failed of snapchat_callback_failed; die
+ * vallen allemaal op dezelfde zin terug.
+ *
+ * Onbekend blijft over: dan een algemene zin, nooit de kale code. De klant
+ * hoort geen "no_refresh_token" te lezen.
+ */
 function humanError(code: string, lang: Lang): string {
-  return COPY[lang].errors[code] || code;
+  const errors = COPY[lang].errors;
+  if (errors[code]) return errors[code];
+  if (code.endsWith("_callback_failed")) return errors.callback_failed;
+  return errors.generic;
 }
 
 function formatDate(iso: string, lang: Lang): string {

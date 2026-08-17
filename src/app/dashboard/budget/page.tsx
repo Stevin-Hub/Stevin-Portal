@@ -1,6 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+/**
+ * Budgetvoorstellen. De Hub stuurt een one-click-link door naar
+ * /dashboard/budget?id=<voorstel-id>. Dat voorstel zetten we bovenaan, zodat
+ * de klant meteen ziet waarvoor hij kwam. Onbekend id betekent gewoon de
+ * normale lijst, geen foutmelding: de link kan oud zijn.
+ *
+ * Het id komt uit window.location.search en niet uit useSearchParams, zodat
+ * deze pagina geen Suspense-grens nodig heeft. De link is altijd een verse
+ * paginalading vanuit de mail, dus een effect bij het mounten is genoeg.
+ */
+
+import { useEffect, useMemo, useState } from "react";
 import { portalFetch } from "@/lib/api";
 import { useLanguage, localeFor, type Lang } from "@/lib/useLanguage";
 import AuthGuard from "@/components/AuthGuard";
@@ -103,10 +114,24 @@ function BudgetContent({ userRole }: { userRole: string }) {
   const [proposals, setProposals] = useState<BudgetProposal[]>([]);
   const [loading, setLoading] = useState(true);
   const [decidingId, setDecidingId] = useState<string | null>(null);
+  const [focusId, setFocusId] = useState<string | null>(null);
 
   useEffect(() => {
     loadProposals();
   }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const id = new URLSearchParams(window.location.search).get("id");
+    if (id) setFocusId(id);
+  }, []);
+
+  const ordered = useMemo(() => {
+    if (!focusId) return proposals;
+    const pinned = proposals.find((p) => p.id === focusId);
+    if (!pinned) return proposals;
+    return [pinned, ...proposals.filter((p) => p.id !== pinned.id)];
+  }, [proposals, focusId]);
 
   async function loadProposals() {
     try {
@@ -169,12 +194,18 @@ function BudgetContent({ userRole }: { userRole: string }) {
         </div>
       ) : (
         <div className="space-y-4">
-          {proposals.map((p) => {
+          {ordered.map((p) => {
             const sc = statusConfig[p.status];
             const increase = p.current_budget ? p.proposed_budget - p.current_budget : null;
+            const focused = p.id === focusId;
 
             return (
-              <div key={p.id} className="bg-card border border-border rounded-xl overflow-hidden">
+              <div
+                key={p.id}
+                className={`bg-card border rounded-xl overflow-hidden ${
+                  focused ? "border-accent ring-1 ring-accent/40" : "border-border"
+                }`}
+              >
                 <div className="p-5">
                   <div className="flex items-start justify-between mb-3">
                     <div>

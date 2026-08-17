@@ -16,6 +16,16 @@ import { portalFetch } from "@/lib/api";
 
 export type ArchiveLang = "nl" | "en";
 
+/**
+ * Machineleesbare basis onder een mijlpaalzin, zoals multiplier_basis dat al
+ * doet: een code met het getal dat in de Nederlandse zin staat. Zo hoeft de
+ * Engelse weergave niet meer op de tekst te matchen.
+ */
+interface MilestoneBasis {
+  code: "daily_spike" | "followers_passed" | "daily_rhythm";
+  value: number;
+}
+
 interface ArchiveEntry {
   type: "video" | "milestone" | "decision";
   date: string;
@@ -34,6 +44,12 @@ interface ArchiveEntry {
   detail?: string | null;
   category?: string | null;
   measurement?: Record<string, unknown> | null;
+  // Mijlpalen: de basis onder title en detail. Een mijlpaal draagt twee zinnen
+  // (de spike en het dagritme), dus de basis kan als lijst komen of als los
+  // veld naast de detailzin. Beide vormen worden hier gelezen; de code bepaalt
+  // bij welke zin hij hoort, niet de veldnaam.
+  basis?: MilestoneBasis | MilestoneBasis[] | null;
+  detail_basis?: MilestoneBasis | null;
 }
 
 interface ArchiveMonth {
@@ -272,12 +288,49 @@ function reformatDutchNumber(value: string, ui: Ui): string {
   return Number.isNaN(parsed) ? value : ui.int(parsed);
 }
 
-// De Hub schrijft de mijlpaal-regels in het Nederlands. Voor een
-// Engelstalige klant zetten we de bekende vormen om, met het getal uit de
-// tekst zelf; onbekende vormen laten we ongemoeid staan.
-function translateMilestone(text: string | null | undefined, ui: Ui): string | null {
+// Alle basis-objecten die bij een mijlpaal meekomen, in welke vorm dan ook.
+// Onbekende codes en ontbrekende getallen vallen af, dan blijft de tekst leidend.
+function milestoneBases(entry: ArchiveEntry): MilestoneBasis[] {
+  const found: MilestoneBasis[] = [];
+  const add = (raw: unknown) => {
+    if (!raw || typeof raw !== "object") return;
+    const candidate = raw as { code?: unknown; value?: unknown };
+    if (
+      candidate.code !== "daily_spike" &&
+      candidate.code !== "followers_passed" &&
+      candidate.code !== "daily_rhythm"
+    ) {
+      return;
+    }
+    if (typeof candidate.value !== "number" || !Number.isFinite(candidate.value)) return;
+    found.push({ code: candidate.code, value: candidate.value });
+  };
+  if (Array.isArray(entry.basis)) entry.basis.forEach(add);
+  else add(entry.basis);
+  add(entry.detail_basis);
+  return found;
+}
+
+// De Hub schrijft de mijlpaal-regels in het Nederlands. Voor een Engelstalige
+// klant vertalen we op de basis-code die de Hub meestuurt (code plus getal).
+// De tekstherkenning eronder is alleen nog terugval voor antwoorden zonder
+// basis; onbekende vormen laten we ongemoeid staan.
+function translateMilestone(
+  text: string | null | undefined,
+  ui: Ui,
+  basis?: MilestoneBasis,
+): string | null {
   if (!text) return null;
   if (ui.lang === "nl") return text;
+
+  if (basis) {
+    if (basis.code === "daily_spike") return `+${ui.int(basis.value)} subscribers in one day`;
+    if (basis.code === "followers_passed") return `Passed ${ui.int(basis.value)} subscribers`;
+    if (basis.code === "daily_rhythm") {
+      return `The daily rhythm sits around ${ui.int(basis.value)} subscribers.`;
+    }
+  }
+
   let match = /^\+([\d.,]+) abonnees op een dag$/.exec(text);
   if (match) return `+${reformatDutchNumber(match[1], ui)} subscribers in one day`;
   match = /^([\d.,]+) abonnees gepasseerd$/.exec(text);
@@ -687,8 +740,13 @@ function measurementLines(measurement: Record<string, unknown> | null | undefine
 
 function MilestoneCard({ entry, ui }: { entry: ArchiveEntry; ui: Ui }) {
   const c = ui.c;
-  const title = translateMilestone(entry.title, ui);
-  const detail = translateMilestone(entry.detail, ui);
+  // De code zegt bij welke zin een basis hoort: de titel is de spike of de
+  // gepasseerde grens, het detail is het dagritme.
+  const bases = milestoneBases(entry);
+  const titleBasis = bases.find((b) => b.code === "daily_spike" || b.code === "followers_passed");
+  const detailBasis = bases.find((b) => b.code === "daily_rhythm");
+  const title = translateMilestone(entry.title, ui, titleBasis);
+  const detail = translateMilestone(entry.detail, ui, detailBasis);
   return (
     <article className="flex flex-wrap items-baseline gap-x-2.5 gap-y-1 rounded-2xl border border-border-subtle bg-card px-4 py-2.5">
       <span className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">{c.milestoneLabel}</span>

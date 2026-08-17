@@ -32,7 +32,9 @@ const NAV_ITEMS = [
   { href: "/dashboard/budget", label: { nl: "Budget", en: "Budget" }, icon: Wallet },
   { href: "/dashboard/brain", label: { nl: "Brain", en: "Brain" }, icon: Sparkles },
   { href: "/dashboard/chat", label: { nl: "Vraag Stevin", en: "Ask Stevin" }, icon: MessageCircle },
-  // {slug} wordt client-side ingevuld via clientSlug. Adminonly-flag toont 'm alleen voor admins.
+  // {slug} wordt client-side ingevuld via clientSlug. adminOnly houdt 'm bij
+  // de eigenaar: accounts koppelen is een eigenaarshandeling, net als de
+  // campagne-aanvragen die de Hub op rol admin afschermt (owner_only_request).
   { href: "/dashboard/__SLUG__/integrations", label: { nl: "Koppelingen", en: "Integrations" }, icon: Plug, adminOnly: true, slugSlot: true },
   { href: "/dashboard/account", label: { nl: "Account", en: "Account" }, icon: UserCircle },
 ];
@@ -74,6 +76,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isCreator, setIsCreator] = useState(false);
   const [impersonating, setImpersonating] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  // Rol van de ingelogde klantgebruiker: admin (eigenaar), medewerker of
+  // stagiair. Bron is /me, want getUser() geeft bij de Google-login
+  // "authenticated" terug en dat is geen portaalrol.
+  const [role, setRole] = useState<string | null>(null);
+  const isAdmin = role === "admin";
+  // Zonder slug wordt de koppelingen-link /dashboard//integrations, een dode
+  // pagina. Dan tonen we het item liever niet.
+  const [clientSlug, setClientSlug] = useState("");
 
   // De root-layout zet lang="nl" omdat die server-side draait en de klanttaal
   // niet kent. Hier is die wel bekend, dus zetten we het attribuut bij voor
@@ -103,6 +113,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
     if (client) {
       setClientName(client.name);
+      if (client.slug) setClientSlug(client.slug);
       if (client.orgType) setOrgType(client.orgType);
     }
     setImpersonating(isImpersonating());
@@ -111,12 +122,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // localStorage-naam naar de EIGEN login (Van Gestel) terwijl de data van
     // de meegekeken klant kwam (16 aug 2026). Naam en creator-vlag komen
     // daarom altijd uit /me, dat met het actieve token meebeweegt.
-    portalFetch<{ creator?: boolean; client?: { name?: string } | null }>("/me")
+    portalFetch<{ creator?: boolean; client?: { name?: string; slug?: string } | null; user?: { role?: string } | null }>("/me")
       .then((me) => {
         setIsCreator(Boolean(me.creator));
         if (me.client?.name) setClientName(me.client.name);
+        if (me.client?.slug) setClientSlug(me.client.slug);
+        setRole(me.user?.role ?? null);
       })
-      .catch(() => setIsCreator(false));
+      .catch(() => {
+        setIsCreator(false);
+        setRole(user?.role ?? null);
+      });
 
     // Check terms acceptance (skip for impersonation)
     if (user && !isImpersonating()) {
@@ -162,8 +178,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {NAV_ITEMS
             .filter((item) => !('hideForAgency' in item && item.hideForAgency) || (orgType !== "agency" && orgType !== "agency_client"))
             .filter((item) => !('creatorOnly' in item && item.creatorOnly) || isCreator)
+            .filter((item) => !('adminOnly' in item && item.adminOnly) || isAdmin)
+            .filter((item) => !('slugSlot' in item && item.slugSlot) || clientSlug !== "")
             .map((item) => {
-            const href = item.slugSlot ? item.href.replace("__SLUG__", getClient()?.slug || "") : item.href;
+            const href = item.slugSlot ? item.href.replace("__SLUG__", clientSlug) : item.href;
             const isActive = pathname === href || (href === "/dashboard" && pathname === "/dashboard");
             return (
               <a
@@ -218,13 +236,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <nav className="space-y-1">
               {NAV_ITEMS
                 .filter((item) => !('hideForAgency' in item && item.hideForAgency) || (orgType !== "agency" && orgType !== "agency_client"))
-            .filter((item) => !('creatorOnly' in item && item.creatorOnly) || isCreator)
+                .filter((item) => !('creatorOnly' in item && item.creatorOnly) || isCreator)
+                .filter((item) => !('adminOnly' in item && item.adminOnly) || isAdmin)
+                .filter((item) => !('slugSlot' in item && item.slugSlot) || clientSlug !== "")
                 .map((item) => {
                 const isActive = pathname === item.href;
                 return (
                   <a
                     key={item.href}
-                    href={item.slugSlot ? item.href.replace("__SLUG__", getClient()?.slug || "") : item.href}
+                    href={item.slugSlot ? item.href.replace("__SLUG__", clientSlug) : item.href}
                     onClick={() => setMobileOpen(false)}
                     className={`flex items-center gap-3 px-3 py-2.5 rounded-2xl text-sm font-bold transition ${
                       isActive

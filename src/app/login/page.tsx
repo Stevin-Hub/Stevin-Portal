@@ -7,7 +7,9 @@
  * browser niets, dan blijft het Nederlands.
  *
  * De keuze staat bewust in een effect en niet in de eerste render, zodat
- * server en client dezelfde HTML opleveren.
+ * server en client dezelfde HTML opleveren. In datzelfde effect gaat ook
+ * document.documentElement.lang mee, want de root-layout zet lang="nl" en dit
+ * scherm valt buiten het dashboard, net als /auth/verify.
  */
 
 import { useEffect, useState } from "react";
@@ -77,7 +79,9 @@ export default function LoginPage() {
   useEffect(() => {
     const browserLang = typeof navigator !== "undefined" ? navigator.language : "";
     if (!browserLang) return;
-    setLang(browserLang.toLowerCase().startsWith("nl") ? "nl" : "en");
+    const next: Lang = browserLang.toLowerCase().startsWith("nl") ? "nl" : "en";
+    setLang(next);
+    document.documentElement.lang = next;
   }, []);
 
   const c = COPY[lang];

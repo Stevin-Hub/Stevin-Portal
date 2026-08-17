@@ -1,6 +1,18 @@
 "use client";
 
-import { useEffect, useState } from "react";
+/**
+ * Goedkeuringen. De Hub stuurt een one-click-link door naar
+ * /dashboard/approvals?id=<creative-id>. Dat id zetten we bovenaan de lijst,
+ * los van het gekozen filter, zodat de klant meteen ziet waarvoor hij kwam.
+ * Onbekend id betekent gewoon de normale lijst, geen foutmelding: de link kan
+ * oud zijn en dan is er niets aan de hand.
+ *
+ * Het id komt uit window.location.search en niet uit useSearchParams, zodat
+ * deze pagina geen Suspense-grens nodig heeft. De link is altijd een verse
+ * paginalading vanuit de mail, dus een effect bij het mounten is genoeg.
+ */
+
+import { useEffect, useMemo, useState } from "react";
 import { portalFetch } from "@/lib/api";
 import { useLanguage, localeFor, type Lang } from "@/lib/useLanguage";
 import AuthGuard from "@/components/AuthGuard";
@@ -119,9 +131,16 @@ function ApprovalsContent({ userRole }: { userRole: string }) {
   const [decidingId, setDecidingId] = useState<string | null>(null);
   const [feedbackText, setFeedbackText] = useState("");
   const [feedbackFor, setFeedbackFor] = useState<string | null>(null);
+  const [focusId, setFocusId] = useState<string | null>(null);
 
   useEffect(() => {
     loadApprovals();
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const id = new URLSearchParams(window.location.search).get("id");
+    if (id) setFocusId(id);
   }, []);
 
   async function loadApprovals() {
@@ -156,7 +175,13 @@ function ApprovalsContent({ userRole }: { userRole: string }) {
     }
   }
 
-  const filtered = filter === "all" ? approvals : approvals.filter((a) => a.status === filter);
+  const filtered = useMemo(() => {
+    const base = filter === "all" ? approvals : approvals.filter((a) => a.status === filter);
+    if (!focusId) return base;
+    const pinned = approvals.find((a) => a.id === focusId);
+    if (!pinned) return base;
+    return [pinned, ...base.filter((a) => a.id !== pinned.id)];
+  }, [approvals, filter, focusId]);
 
   const statusConfig: Record<string, { label: string; color: string; bg: string }> = {
     pending: { label: c.statusPending, color: "text-warning", bg: "bg-warning-light" },
@@ -214,10 +239,13 @@ function ApprovalsContent({ userRole }: { userRole: string }) {
         <div className="space-y-4">
           {filtered.map((approval) => {
             const sc = statusConfig[approval.status];
+            const focused = approval.id === focusId;
             return (
               <div
                 key={approval.id}
-                className="bg-card border border-border rounded-xl overflow-hidden"
+                className={`bg-card border rounded-xl overflow-hidden ${
+                  focused ? "border-accent ring-1 ring-accent/40" : "border-border"
+                }`}
               >
                 <div className="p-5">
                   <div className="flex items-start justify-between mb-3">
