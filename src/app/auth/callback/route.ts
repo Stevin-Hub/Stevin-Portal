@@ -22,7 +22,7 @@ export async function GET(request: Request) {
                 cookieStore.set(name, value, { ...options })
               );
             } catch {
-              // Ignore — called from Server Component
+              // Ignore, called from Server Component
             }
           },
         },
@@ -31,7 +31,7 @@ export async function GET(request: Request) {
 
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (!error) {
-      // Code exchanged — session is now in cookies.
+      // Code exchanged, session is now in cookies.
       // Redirect to /auth/complete which hydrates localStorage with portal info.
       return NextResponse.redirect(`${origin}/auth/complete`);
     }
@@ -40,11 +40,11 @@ export async function GET(request: Request) {
     return NextResponse.redirect(`${origin}/login?error=auth_failed`);
   }
 
-  // No code — maybe error from provider
+  // No code, maybe error from provider
   const error = searchParams.get("error");
   const errorDesc = searchParams.get("error_description");
   if (error) {
-    console.error(`[Auth] Provider error: ${error} — ${errorDesc}`);
+    console.error(`[Auth] Provider error: ${error}, ${errorDesc}`);
   }
 
   return NextResponse.redirect(`${origin}/login?error=no_code`);

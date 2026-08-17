@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import AuthGuard from "@/components/AuthGuard";
 import { portalFetch } from "@/lib/api";
+import { getClient } from "@/lib/auth";
+import { useLanguage, localeFor, type Lang } from "@/lib/useLanguage";
 import { toast } from "sonner";
 
 interface DashboardData {
@@ -31,6 +33,8 @@ interface DashboardData {
   pendingBudgets: number;
   period: { days: number; since: string };
   message?: string;
+  /** Machineleesbare reden bij een lege staat, zodat het portaal zelf de taal kiest. */
+  reason?: "no_campaigns_linked" | "no_data_yet";
 }
 
 interface Report {
@@ -41,16 +45,184 @@ interface Report {
   created_at: string;
 }
 
-const PERIODS = [7, 14, 30];
-
-function fmtNum(n: number): string {
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toLocaleString("nl-NL");
+interface Copy {
+  overview: string;
+  headline: string;
+  emptyBody: string;
+  emptyBodyNoData: string;
+  manageIntegrations: string;
+  kpiSpend: string;
+  kpiSpendContext: (cpc: string) => string;
+  kpiReach: string;
+  kpiReachContext: string;
+  kpiClicks: string;
+  kpiClicksContext: (ctr: string) => string;
+  kpiResults: string;
+  kpiResultsContext: (cpa: string) => string;
+  approvalsTitle: (count: number) => string;
+  approvalsMeta: string[];
+  approvalsWhy: string;
+  budgetsTitle: (count: number) => string;
+  budgetsMeta: string[];
+  budgetsWhy: string;
+  view: string;
+  changeTitle: string;
+  changeIntro: string;
+  contextLabel: string;
+  mostResults: string;
+  mostSpend: string;
+  nextStep: string;
+  nextStepBody: string;
+  resultsCount: (label: string, value: string) => string;
+  noData: string;
+  channelsTitle: string;
+  channelsIntro: (days: number) => string;
+  thChannel: string;
+  thSpend: string;
+  thReach: string;
+  thClicks: string;
+  thResults: string;
+  thPerResult: string;
+  alertsTitle: string;
+  alertsIntro: string;
+  askStevin: string;
+  alertTitle: string;
+  alertMeta: (days: number) => string[];
+  alertWhy: string;
+  campaigns: string;
+  reportsTitle: string;
+  reportsIntro: string;
+  monthlyReport: string;
+  weeklyReport: string;
+  read: string;
+  close: string;
 }
 
-function fmtEur(n: number): string {
-  return new Intl.NumberFormat("nl-NL", {
+const COPY: Record<Lang, Copy> = {
+  nl: {
+    overview: "Overzicht",
+    headline: "Wat veranderde er, wat vraagt actie, wat blijft stabiel.",
+    emptyBody:
+      "Er is nog geen campagnedata beschikbaar. Koppel eerst je kanalen, dan verschijnt hier wat veranderde en wat aandacht vraagt.",
+    emptyBodyNoData:
+      "Je kanalen zijn gekoppeld, maar er is over deze periode nog geen data binnengekomen.",
+    manageIntegrations: "Koppelingen beheren",
+    kpiSpend: "Investering",
+    kpiSpendContext: (cpc) => `${cpc} per klik`,
+    kpiReach: "Bereik",
+    kpiReachContext: "Aantal keer getoond",
+    kpiClicks: "Klikken",
+    kpiClicksContext: (ctr) => `${ctr}% klikpercentage`,
+    kpiResults: "Resultaten",
+    kpiResultsContext: (cpa) => `${cpa} per resultaat`,
+    approvalsTitle: (count) =>
+      `${count} goedkeuring${count === 1 ? "" : "en"} wacht${count === 1 ? "" : "en"}`,
+    approvalsMeta: ["Creatives", "actie nodig"],
+    approvalsWhy: "Er staat nieuw materiaal klaar dat pas live kan na akkoord.",
+    budgetsTitle: (count) => `${count} budgetvoorstel${count === 1 ? "" : "len"}`,
+    budgetsMeta: ["Budget", "beslissing"],
+    budgetsWhy: "Er ligt een voorstel klaar om budget te verschuiven op basis van de afgelopen periode.",
+    view: "Bekijken",
+    changeTitle: "Wat veranderde er deze periode?",
+    changeIntro: "Tweede helft van de periode vergeleken met de eerste helft.",
+    contextLabel: "Context",
+    mostResults: "Meeste resultaat:",
+    mostSpend: "Meeste investering:",
+    nextStep: "Volgende stap:",
+    nextStepBody: "bekijk open goedkeuringen of vraag Stevin om toelichting op de cijfers.",
+    resultsCount: (label, value) => `${label} (${value} resultaten)`,
+    noData: "nog onvoldoende data",
+    channelsTitle: "Per kanaal",
+    channelsIntro: (days) => `Waar de investering en de resultaten vandaan komen, afgelopen ${days} dagen.`,
+    thChannel: "Kanaal",
+    thSpend: "Investering",
+    thReach: "Bereik",
+    thClicks: "Klikken",
+    thResults: "Resultaten",
+    thPerResult: "Per resultaat",
+    alertsTitle: "Meldingen",
+    alertsIntro: "Wat aandacht vraagt, met genoeg context om te beslissen.",
+    askStevin: "Vraag Stevin om uitleg",
+    alertTitle: "Resultaten bewegen sterker dan investering",
+    alertMeta: (days) => ["Performance", `${days} dagen`, "uitlegbaar"],
+    alertWhy:
+      "De verhouding tussen investering en resultaat is veranderd. Kijk vooral naar kanaalverschuivingen voordat er budget wordt aangepast.",
+    campaigns: "Campagnes",
+    reportsTitle: "Rapportages",
+    reportsIntro: "De samenvattingen die je normaal in het klantgesprek krijgt.",
+    monthlyReport: "Maandrapport",
+    weeklyReport: "Weekrapport",
+    read: "Lezen",
+    close: "Sluiten",
+  },
+  en: {
+    overview: "Overview",
+    headline: "What changed, what needs action, what stays stable.",
+    emptyBody:
+      "There is no campaign data yet. Connect your channels first, then you will see here what changed and what needs attention.",
+    emptyBodyNoData:
+      "Your channels are connected, but no data has come in for this period yet.",
+    manageIntegrations: "Manage integrations",
+    kpiSpend: "Investment",
+    kpiSpendContext: (cpc) => `${cpc} per click`,
+    kpiReach: "Reach",
+    kpiReachContext: "Times shown",
+    kpiClicks: "Clicks",
+    kpiClicksContext: (ctr) => `${ctr}% click rate`,
+    kpiResults: "Results",
+    kpiResultsContext: (cpa) => `${cpa} per result`,
+    approvalsTitle: (count) => `${count} approval${count === 1 ? "" : "s"} waiting`,
+    approvalsMeta: ["Creatives", "action needed"],
+    approvalsWhy: "New material is ready that can only go live once you approve it.",
+    budgetsTitle: (count) => `${count} budget proposal${count === 1 ? "" : "s"}`,
+    budgetsMeta: ["Budget", "decision"],
+    budgetsWhy: "There is a proposal ready to shift budget, based on the period behind us.",
+    view: "View",
+    changeTitle: "What changed this period?",
+    changeIntro: "The second half of the period compared with the first half.",
+    contextLabel: "Context",
+    mostResults: "Most results:",
+    mostSpend: "Most investment:",
+    nextStep: "Next step:",
+    nextStepBody: "look at the open approvals or ask Stevin to talk you through the numbers.",
+    resultsCount: (label, value) => `${label} (${value} results)`,
+    noData: "not enough data yet",
+    channelsTitle: "Per channel",
+    channelsIntro: (days) => `Where the investment and the results come from, the last ${days} days.`,
+    thChannel: "Channel",
+    thSpend: "Investment",
+    thReach: "Reach",
+    thClicks: "Clicks",
+    thResults: "Results",
+    thPerResult: "Per result",
+    alertsTitle: "Alerts",
+    alertsIntro: "What needs attention, with enough context to decide.",
+    askStevin: "Ask Stevin to explain",
+    alertTitle: "Results are moving more than investment",
+    alertMeta: (days) => ["Performance", `${days} days`, "explainable"],
+    alertWhy:
+      "The ratio between investment and result has changed. Look at shifts between channels first, before any budget is adjusted.",
+    campaigns: "Campaigns",
+    reportsTitle: "Reports",
+    reportsIntro: "The summaries you would normally get in a review meeting.",
+    monthlyReport: "Monthly report",
+    weeklyReport: "Weekly report",
+    read: "Read",
+    close: "Close",
+  },
+};
+
+const PERIODS = [7, 14, 30];
+
+function fmtNum(n: number, locale: string): string {
+  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
+  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
+  return n.toLocaleString(locale);
+}
+
+// Bedragen blijven euro's, alleen de notatie volgt de taal van de klant.
+function fmtEur(n: number, locale: string): string {
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency: "EUR",
     maximumFractionDigits: 0,
@@ -143,6 +315,9 @@ export default function DashboardPage() {
 }
 
 function DashboardContent({ clientName }: { clientName: string }) {
+  const lang = useLanguage();
+  const c = COPY[lang];
+  const locale = localeFor(lang);
   const [data, setData] = useState<DashboardData | null>(null);
   const [reports, setReports] = useState<Report[]>([]);
   const [period, setPeriod] = useState(30);
@@ -197,18 +372,18 @@ function DashboardContent({ clientName }: { clientName: string }) {
         <div className="mb-4 flex items-center gap-3">
           <img src="/stevin-icon-navy.png" alt="" className="h-8 w-8" />
           <div>
-            <h1 className="text-2xl font-bold tracking-[-0.01em]">Overzicht</h1>
+            <h1 className="text-2xl font-bold tracking-[-0.01em]">{c.overview}</h1>
             <p className="mt-0.5 text-sm text-muted-foreground">{clientName}</p>
           </div>
         </div>
         <p className="max-w-2xl text-sm text-muted-foreground">
-          {data?.message || "Er is nog geen campagnedata beschikbaar. Koppel eerst je kanalen, dan verschijnt hier wat veranderde en wat aandacht vraagt."}
+          {data?.reason === "no_data_yet" ? c.emptyBodyNoData : c.emptyBody}
         </p>
         <Link
-          href="/dashboard/integrations"
+          href={`/dashboard/${getClient()?.slug || ""}/integrations`}
           className="mt-5 inline-flex rounded-full bg-foreground px-5 py-2.5 text-[13px] font-semibold text-background"
         >
-          Koppelingen beheren
+          {c.manageIntegrations}
         </Link>
       </section>
     );
@@ -220,9 +395,9 @@ function DashboardContent({ clientName }: { clientName: string }) {
     <div className="space-y-5">
       <header className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Overzicht</p>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">{c.overview}</p>
           <h1 className="mt-1 text-2xl font-bold tracking-[-0.01em] text-foreground">
-            Wat veranderde er, wat vraagt actie, wat blijft stabiel.
+            {c.headline}
           </h1>
         </div>
 
@@ -243,10 +418,10 @@ function DashboardContent({ clientName }: { clientName: string }) {
       </header>
 
       <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <KpiCard label="Investering" value={fmtEur(kpis.cost)} context={`${kpis.cpc} per klik`} />
-        <KpiCard label="Bereik" value={fmtNum(kpis.impressions)} context="Aantal keer getoond" />
-        <KpiCard label="Klikken" value={fmtNum(kpis.clicks)} context={`${kpis.ctr}% klikpercentage`} />
-        <KpiCard label="Resultaten" value={fmtNum(kpis.conversions)} context={`${kpis.cpa} per resultaat`} />
+        <KpiCard label={c.kpiSpend} value={fmtEur(kpis.cost, locale)} context={c.kpiSpendContext(kpis.cpc)} />
+        <KpiCard label={c.kpiReach} value={fmtNum(kpis.impressions, locale)} context={c.kpiReachContext} />
+        <KpiCard label={c.kpiClicks} value={fmtNum(kpis.clicks, locale)} context={c.kpiClicksContext(kpis.ctr)} />
+        <KpiCard label={c.kpiResults} value={fmtNum(kpis.conversions, locale)} context={c.kpiResultsContext(kpis.cpa)} />
       </section>
 
       {(data.pendingApprovals > 0 || data.pendingBudgets > 0) && (
@@ -254,21 +429,21 @@ function DashboardContent({ clientName }: { clientName: string }) {
           {data.pendingApprovals > 0 && (
             <DecisionCard
               index="01"
-              title={`${data.pendingApprovals} goedkeuring${data.pendingApprovals === 1 ? "" : "en"} wacht${data.pendingApprovals === 1 ? "" : "en"}`}
-              meta={["Creatives", "actie nodig"]}
-              why="Er staat nieuw materiaal klaar dat pas live kan na akkoord."
+              title={c.approvalsTitle(data.pendingApprovals)}
+              meta={c.approvalsMeta}
+              why={c.approvalsWhy}
               href="/dashboard/approvals"
-              cta="Bekijken"
+              cta={c.view}
             />
           )}
           {data.pendingBudgets > 0 && (
             <DecisionCard
               index="02"
-              title={`${data.pendingBudgets} budgetvoorstel${data.pendingBudgets === 1 ? "" : "len"}`}
-              meta={["Budget", "beslissing"]}
-              why="Er ligt een voorstel klaar om budget te verschuiven op basis van de afgelopen periode."
+              title={c.budgetsTitle(data.pendingBudgets)}
+              meta={c.budgetsMeta}
+              why={c.budgetsWhy}
               href="/dashboard/budget"
-              cta="Bekijken"
+              cta={c.view}
             />
           )}
         </section>
@@ -277,33 +452,33 @@ function DashboardContent({ clientName }: { clientName: string }) {
       <section className="rounded-2xl border border-border bg-card px-6 py-5 shadow-[0_12px_32px_rgba(31,41,51,0.05)]">
         <div className="mb-4 flex flex-col gap-2 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h2 className="text-lg font-bold tracking-[-0.01em]">Wat veranderde er deze periode?</h2>
+            <h2 className="text-lg font-bold tracking-[-0.01em]">{c.changeTitle}</h2>
             <p className="mt-1 max-w-3xl text-[13px] leading-snug text-muted-foreground">
-              Tweede helft van de periode vergeleken met de eerste helft.
+              {c.changeIntro}
             </p>
           </div>
         </div>
 
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(300px,0.7fr)]">
           <div className="grid content-start gap-2.5">
-            <MetricRow label="Investering" value={surface.costTrend == null ? fmtEur(kpis.cost) : pct(surface.costTrend)} muted={surface.costTrend != null && surface.costTrend < 0} />
-            <MetricRow label="Klikken" value={surface.clickTrend == null ? fmtNum(kpis.clicks) : pct(surface.clickTrend)} muted={surface.clickTrend != null && surface.clickTrend < 0} />
-            <MetricRow label="Resultaten" value={surface.conversionTrend == null ? fmtNum(kpis.conversions) : pct(surface.conversionTrend)} muted={surface.conversionTrend != null && surface.conversionTrend < 0} />
-            <MetricRow label="Bereik" value={surface.impressionTrend == null ? fmtNum(kpis.impressions) : pct(surface.impressionTrend)} muted={surface.impressionTrend != null && surface.impressionTrend < 0} />
+            <MetricRow label={c.kpiSpend} value={surface.costTrend == null ? fmtEur(kpis.cost, locale) : pct(surface.costTrend)} muted={surface.costTrend != null && surface.costTrend < 0} />
+            <MetricRow label={c.kpiClicks} value={surface.clickTrend == null ? fmtNum(kpis.clicks, locale) : pct(surface.clickTrend)} muted={surface.clickTrend != null && surface.clickTrend < 0} />
+            <MetricRow label={c.kpiResults} value={surface.conversionTrend == null ? fmtNum(kpis.conversions, locale) : pct(surface.conversionTrend)} muted={surface.conversionTrend != null && surface.conversionTrend < 0} />
+            <MetricRow label={c.kpiReach} value={surface.impressionTrend == null ? fmtNum(kpis.impressions, locale) : pct(surface.impressionTrend)} muted={surface.impressionTrend != null && surface.impressionTrend < 0} />
           </div>
           <div className="rounded-xl border border-border bg-[#fbfcfe] p-4">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">Context</p>
+            <p className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">{c.contextLabel}</p>
             <div className="mt-2.5 grid gap-2 text-[13px] leading-snug text-muted-foreground">
               <p>
-                <strong className="font-semibold text-foreground">Meeste resultaat:</strong>{" "}
-                {topChannel ? `${topChannel.label} (${fmtNum(topChannel.conversions)} resultaten)` : "nog onvoldoende data"}.
+                <strong className="font-semibold text-foreground">{c.mostResults}</strong>{" "}
+                {topChannel ? c.resultsCount(topChannel.label, fmtNum(topChannel.conversions, locale)) : c.noData}.
               </p>
               <p>
-                <strong className="font-semibold text-foreground">Meeste investering:</strong>{" "}
-                {spendChannel ? `${spendChannel.label} (${fmtEur(spendChannel.cost)})` : "nog onvoldoende data"}.
+                <strong className="font-semibold text-foreground">{c.mostSpend}</strong>{" "}
+                {spendChannel ? `${spendChannel.label} (${fmtEur(spendChannel.cost, locale)})` : c.noData}.
               </p>
               <p>
-                <strong className="font-semibold text-foreground">Volgende stap:</strong> bekijk open goedkeuringen of vraag Stevin om toelichting op de cijfers.
+                <strong className="font-semibold text-foreground">{c.nextStep}</strong> {c.nextStepBody}
               </p>
             </div>
           </div>
@@ -316,20 +491,20 @@ function DashboardContent({ clientName }: { clientName: string }) {
         <section className="rounded-2xl border border-border bg-card px-6 py-5 shadow-[0_12px_32px_rgba(31,41,51,0.05)]">
           <div className="mb-3 flex items-end justify-between gap-3">
             <div>
-              <h2 className="text-lg font-bold tracking-[-0.01em]">Per kanaal</h2>
-              <p className="mt-1 text-[13px] text-muted-foreground">Waar de investering en de resultaten vandaan komen, afgelopen {period} dagen.</p>
+              <h2 className="text-lg font-bold tracking-[-0.01em]">{c.channelsTitle}</h2>
+              <p className="mt-1 text-[13px] text-muted-foreground">{c.channelsIntro(period)}</p>
             </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full min-w-[560px] border-collapse text-[13px]">
               <thead>
                 <tr className="border-b border-border text-left text-[11px] font-semibold uppercase tracking-[0.08em] text-muted-foreground">
-                  <th className="py-2 pr-4 font-semibold">Kanaal</th>
-                  <th className="py-2 pr-4 text-right font-semibold">Investering</th>
-                  <th className="py-2 pr-4 text-right font-semibold">Bereik</th>
-                  <th className="py-2 pr-4 text-right font-semibold">Klikken</th>
-                  <th className="py-2 pr-4 text-right font-semibold">Resultaten</th>
-                  <th className="py-2 text-right font-semibold">Per resultaat</th>
+                  <th className="py-2 pr-4 font-semibold">{c.thChannel}</th>
+                  <th className="py-2 pr-4 text-right font-semibold">{c.thSpend}</th>
+                  <th className="py-2 pr-4 text-right font-semibold">{c.thReach}</th>
+                  <th className="py-2 pr-4 text-right font-semibold">{c.thClicks}</th>
+                  <th className="py-2 pr-4 text-right font-semibold">{c.thResults}</th>
+                  <th className="py-2 text-right font-semibold">{c.thPerResult}</th>
                 </tr>
               </thead>
               <tbody>
@@ -338,12 +513,12 @@ function DashboardContent({ clientName }: { clientName: string }) {
                   .map((ch) => (
                     <tr key={ch.source} className="border-b border-border-subtle last:border-0">
                       <td className="py-2.5 pr-4 font-semibold text-foreground">{ch.label}</td>
-                      <td className="py-2.5 pr-4 text-right text-foreground">{fmtEur(ch.cost)}</td>
-                      <td className="py-2.5 pr-4 text-right text-muted-foreground">{fmtNum(ch.impressions)}</td>
-                      <td className="py-2.5 pr-4 text-right text-muted-foreground">{fmtNum(ch.clicks)}</td>
-                      <td className="py-2.5 pr-4 text-right font-semibold text-foreground">{fmtNum(ch.conversions)}</td>
+                      <td className="py-2.5 pr-4 text-right text-foreground">{fmtEur(ch.cost, locale)}</td>
+                      <td className="py-2.5 pr-4 text-right text-muted-foreground">{fmtNum(ch.impressions, locale)}</td>
+                      <td className="py-2.5 pr-4 text-right text-muted-foreground">{fmtNum(ch.clicks, locale)}</td>
+                      <td className="py-2.5 pr-4 text-right font-semibold text-foreground">{fmtNum(ch.conversions, locale)}</td>
                       <td className="py-2.5 text-right text-muted-foreground">
-                        {ch.conversions > 0 ? fmtEur(ch.cost / ch.conversions) : "-"}
+                        {ch.conversions > 0 ? fmtEur(ch.cost / ch.conversions, locale) : "-"}
                       </td>
                     </tr>
                   ))}
@@ -356,20 +531,20 @@ function DashboardContent({ clientName }: { clientName: string }) {
       <section className="rounded-2xl border border-border bg-card px-6 py-5 shadow-[0_12px_32px_rgba(31,41,51,0.05)]">
         <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
           <div>
-            <h2 className="text-lg font-bold tracking-[-0.01em]">Meldingen</h2>
-            <p className="mt-1 text-[13px] text-muted-foreground">Wat aandacht vraagt, met genoeg context om te beslissen.</p>
+            <h2 className="text-lg font-bold tracking-[-0.01em]">{c.alertsTitle}</h2>
+            <p className="mt-1 text-[13px] text-muted-foreground">{c.alertsIntro}</p>
           </div>
-          <Link href="/dashboard/chat" className="text-[13px] font-semibold text-accent">Vraag Stevin om uitleg</Link>
+          <Link href="/dashboard/chat" className="text-[13px] font-semibold text-accent">{c.askStevin}</Link>
         </div>
 
         <div className="grid gap-3">
           <DecisionCard
             index="01"
-            title="Resultaten bewegen sterker dan investering"
-            meta={["Performance", `${period} dagen`, "uitlegbaar"]}
-            why="De verhouding tussen investering en resultaat is veranderd. Kijk vooral naar kanaalverschuivingen voordat er budget wordt aangepast."
+            title={c.alertTitle}
+            meta={c.alertMeta(period)}
+            why={c.alertWhy}
             href="/dashboard/campaigns"
-            cta="Campagnes"
+            cta={c.campaigns}
           />
         </div>
       </section>
@@ -377,8 +552,8 @@ function DashboardContent({ clientName }: { clientName: string }) {
       {reports.length > 0 && (
         <section className="rounded-2xl border border-border bg-card px-6 py-5 shadow-[0_12px_32px_rgba(31,41,51,0.05)]">
           <div className="mb-3">
-            <h2 className="text-lg font-bold tracking-[-0.01em]">Rapportages</h2>
-            <p className="mt-1 text-[13px] text-muted-foreground">De samenvattingen die je normaal in het klantgesprek krijgt.</p>
+            <h2 className="text-lg font-bold tracking-[-0.01em]">{c.reportsTitle}</h2>
+            <p className="mt-1 text-[13px] text-muted-foreground">{c.reportsIntro}</p>
           </div>
           <div className="grid gap-2">
             {reports.slice(0, 3).map((r) => (
@@ -387,12 +562,12 @@ function DashboardContent({ clientName }: { clientName: string }) {
                   <span className="min-w-0">
                     <span className="block truncate text-[14px] font-semibold text-foreground">{r.title}</span>
                     <span className="mt-0.5 block text-[12px] text-muted-foreground">
-                      {r.type === "monthly_report" ? "Maandrapport" : "Weekrapport"} ·{" "}
-                      {new Date(r.created_at).toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric" })}
+                      {r.type === "monthly_report" ? c.monthlyReport : c.weeklyReport} ·{" "}
+                      {new Date(r.created_at).toLocaleDateString(locale, { day: "numeric", month: "short", year: "numeric" })}
                     </span>
                   </span>
-                  <span className="flex-none text-[12px] font-semibold text-accent group-open:hidden">Lezen</span>
-                  <span className="hidden flex-none text-[12px] font-semibold text-muted-foreground group-open:block">Sluiten</span>
+                  <span className="flex-none text-[12px] font-semibold text-accent group-open:hidden">{c.read}</span>
+                  <span className="hidden flex-none text-[12px] font-semibold text-muted-foreground group-open:block">{c.close}</span>
                 </summary>
                 <p className="mt-3 whitespace-pre-line border-t border-border-subtle pt-3 text-[13px] leading-relaxed text-muted-foreground">
                   {r.body}

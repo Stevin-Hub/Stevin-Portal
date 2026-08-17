@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { X } from "lucide-react";
+import { useLanguage, localeFor, type Lang } from "@/lib/useLanguage";
 import type { BrainEdge, BrainNode, BrainNodeType } from "./useBrainData";
 
 const TYPE_COLORS: Record<BrainNodeType, string> = {
@@ -12,11 +13,41 @@ const TYPE_COLORS: Record<BrainNodeType, string> = {
   kennis: "#b7791f",
 };
 
-const TYPE_LABELS: Record<BrainNodeType, string> = {
-  campagne: "Campagne",
-  creatie: "Creatie",
-  outcome: "Resultaat",
-  kennis: "Kennis",
+interface Copy {
+  types: Record<BrainNodeType, string>;
+  close: string;
+  periodLabel: string;
+  periodRange: (start: string, end: string) => string;
+  ask: string;
+}
+
+// De sleutels campagne, creatie, outcome en kennis zijn interne typenamen
+// uit de data en blijven ongewijzigd; alleen het label eronder is copy.
+const COPY: Record<Lang, Copy> = {
+  nl: {
+    types: {
+      campagne: "Campagne",
+      creatie: "Creatie",
+      outcome: "Resultaat",
+      kennis: "Kennis",
+    },
+    close: "Sluiten",
+    periodLabel: "Periode",
+    periodRange: (start, end) => `${start} tot ${end}`,
+    ask: "Vraag Stevin hierover",
+  },
+  en: {
+    types: {
+      campagne: "Campaign",
+      creatie: "Creative",
+      outcome: "Outcome",
+      kennis: "Knowledge",
+    },
+    close: "Close",
+    periodLabel: "Period",
+    periodRange: (start, end) => `${start} to ${end}`,
+    ask: "Ask Stevin about this",
+  },
 };
 
 const EDGE_COLOR = "#d6dde8";
@@ -76,9 +107,13 @@ function seededOffset(id: string): { x: number; y: number } {
 interface BrainConstellationProps {
   nodes: BrainNode[];
   edges: BrainEdge[];
+  /** Taal van de klant. Optioneel: zonder prop haalt het component hem zelf op. */
+  lang?: Lang;
 }
 
-export default function BrainConstellation({ nodes, edges }: BrainConstellationProps) {
+export default function BrainConstellation({ nodes, edges, lang: langProp }: BrainConstellationProps) {
+  const detectedLang = useLanguage();
+  const lang = langProp ?? detectedLang;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -490,29 +525,30 @@ export default function BrainConstellation({ nodes, edges }: BrainConstellationP
         onPointerCancel={endPointer}
       />
 
-      {selected && <NodeDetail node={selected} onClose={closeDetail} />}
+      {selected && <NodeDetail node={selected} onClose={closeDetail} lang={lang} />}
     </div>
   );
 }
 
-function fmtDate(value: string | null): string | null {
+function fmtDate(value: string | null, lang: Lang): string | null {
   if (!value) return null;
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) return null;
-  return d.toLocaleDateString("nl-NL", { day: "numeric", month: "short", year: "numeric" });
+  return d.toLocaleDateString(localeFor(lang), { day: "numeric", month: "short", year: "numeric" });
 }
 
-function periodText(node: BrainNode): string | null {
+function periodText(node: BrainNode, lang: Lang): string | null {
   if (node.period_label) return node.period_label;
-  const start = fmtDate(node.period_start);
-  const end = fmtDate(node.period_end);
-  if (start && end) return `${start} tot ${end}`;
+  const start = fmtDate(node.period_start, lang);
+  const end = fmtDate(node.period_end, lang);
+  if (start && end) return COPY[lang].periodRange(start, end);
   return start ?? end ?? null;
 }
 
-function NodeDetail({ node, onClose }: { node: BrainNode; onClose: () => void }) {
+function NodeDetail({ node, onClose, lang }: { node: BrainNode; onClose: () => void; lang: Lang }) {
+  const c = COPY[lang];
   const color = TYPE_COLORS[node.type];
-  const period = periodText(node);
+  const period = periodText(node, lang);
 
   return (
     <div className="pointer-events-none absolute inset-x-3 bottom-3 sm:inset-x-auto sm:bottom-auto sm:right-3 sm:top-3 sm:w-[320px]">
@@ -521,13 +557,13 @@ function NodeDetail({ node, onClose }: { node: BrainNode; onClose: () => void })
           <div className="flex items-center gap-2">
             <span className="h-2.5 w-2.5 flex-none rounded-full" style={{ backgroundColor: color }} />
             <span className="text-[11px] font-semibold uppercase tracking-[0.09em] text-muted-foreground">
-              {TYPE_LABELS[node.type]}
+              {c.types[node.type]}
             </span>
           </div>
           <button
             type="button"
             onClick={onClose}
-            aria-label="Sluiten"
+            aria-label={c.close}
             className="flex-none rounded-full p-1 text-muted-foreground transition hover:bg-card-hover hover:text-foreground"
           >
             <X className="h-4 w-4" />
@@ -550,7 +586,7 @@ function NodeDetail({ node, onClose }: { node: BrainNode; onClose: () => void })
           <div className="mt-3 space-y-1.5 border-t border-border-subtle pt-3">
             {period && (
               <p className="text-[12px] text-muted-foreground">
-                <span className="font-semibold text-foreground">Periode:</span> {period}
+                <span className="font-semibold text-foreground">{c.periodLabel}:</span> {period}
               </p>
             )}
             {node.delta && (
@@ -563,7 +599,7 @@ function NodeDetail({ node, onClose }: { node: BrainNode; onClose: () => void })
           href="/dashboard/chat"
           className="mt-4 inline-flex h-9 w-full items-center justify-center rounded-full border border-foreground bg-foreground px-4 text-[13px] font-semibold text-background transition hover:opacity-90"
         >
-          Vraag Stevin hierover
+          {c.ask}
         </Link>
       </div>
     </div>

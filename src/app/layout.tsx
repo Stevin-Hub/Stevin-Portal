@@ -9,8 +9,9 @@ const interTight = Inter_Tight({ variable: "--font-inter-tight", subsets: ["lati
 const jetbrainsMono = JetBrains_Mono({ variable: "--font-jetbrains-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Stevin.AI — Portaal",
-  description: "Campagne-inzichten, budgetbeheer en Stevin Assistant",
+  // Taalneutraal: de root-layout draait server-side en kent de klanttaal niet.
+  title: "Stevin.AI Portal",
+  description: "Stevin.AI",
   icons: {
     icon: [
       { url: "/favicon.png", type: "image/png", sizes: "64x64" },

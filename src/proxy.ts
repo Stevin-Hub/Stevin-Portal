@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 
 /**
  * Portal proxy (middleware).
- * NO server-side auth check — portal uses JWT in localStorage,
+ * NO server-side auth check, portal uses JWT in localStorage,
  * which is validated client-side + by the Hub API.
  *
  * This proxy handles:

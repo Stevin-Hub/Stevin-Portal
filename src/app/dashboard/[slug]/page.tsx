@@ -3,11 +3,26 @@
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { isLoggedIn, getClient } from "@/lib/auth";
+import { useLanguage } from "@/lib/useLanguage";
+
+const COPY = {
+  nl: {
+    title: "Geen toegang",
+    body: "Je hebt geen toegang tot dit dashboard. Log in met het juiste account.",
+    login: "Inloggen",
+  },
+  en: {
+    title: "No access",
+    body: "You do not have access to this dashboard. Log in with the right account.",
+    login: "Log in",
+  },
+} as const;
 
 export default function SlugDashboardPage() {
   const params = useParams();
   const router = useRouter();
   const [status, setStatus] = useState<"loading" | "denied">("loading");
+  const c = COPY[useLanguage()];
   const slug = typeof params.slug === "string" ? params.slug : "";
 
   useEffect(() => {
@@ -18,10 +33,10 @@ export default function SlugDashboardPage() {
 
     const client = getClient();
     if (client?.slug === slug) {
-      // Slug matches logged-in client — show their dashboard
+      // Slug matches logged-in client, show their dashboard
       router.replace("/dashboard");
     } else {
-      // Slug doesn't match — no access
+      // Slug doesn't match, no access
       setStatus("denied");
     }
   }, [slug, router]);
@@ -34,15 +49,15 @@ export default function SlugDashboardPage() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m0 0v2m0-2h2m-2 0H10m9.364-7.364A9 9 0 1112 3a9 9 0 017.364 7.636z" />
           </svg>
         </div>
-        <h1 className="text-xl font-bold mb-2">Geen toegang</h1>
+        <h1 className="text-xl font-bold mb-2">{c.title}</h1>
         <p className="text-muted-foreground mb-6">
-          Je hebt geen toegang tot dit dashboard. Log in met het juiste account.
+          {c.body}
         </p>
         <a
           href="/login"
           className="px-6 py-2.5 bg-accent text-white font-medium rounded-lg hover:bg-accent-muted transition"
         >
-          Inloggen
+          {c.login}
         </a>
       </div>
     );

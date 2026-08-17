@@ -1,7 +1,7 @@
 "use client";
 
 /**
- * /dashboard/creator — Casey's channel dashboard (D-021, English).
+ * /dashboard/creator, Casey's channel dashboard (D-021, English).
  *
  * Same data, same math as the internal Desk screen: everything comes from
  * the shared insights layer in the Hub (/api/portal/creator/*), client

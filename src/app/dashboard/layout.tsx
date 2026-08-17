@@ -21,23 +21,52 @@ import {
 } from "lucide-react";
 import TermsModal from "@/components/TermsModal";
 import { portalFetch } from "@/lib/api";
+import { useLanguage, type Lang } from "@/lib/useLanguage";
 
+// Labels per taal; de vlaggen (creatorOnly, adminOnly, slugSlot) blijven ongemoeid.
 const NAV_ITEMS = [
-  { href: "/dashboard", label: "Overzicht", icon: LayoutDashboard },
+  { href: "/dashboard", label: { nl: "Overzicht", en: "Overview" }, icon: LayoutDashboard },
   // Alleen zichtbaar voor klanten met een creator-profiel (D-021, flag uit /me).
-  { href: "/dashboard/creator", label: "Creator", icon: Clapperboard, creatorOnly: true },
-  { href: "/dashboard/approvals", label: "Goedkeuringen", icon: Image },
-  { href: "/dashboard/budget", label: "Budget", icon: Wallet },
-  { href: "/dashboard/brain", label: "Brain", icon: Sparkles },
-  { href: "/dashboard/chat", label: "Vraag Stevin", icon: MessageCircle },
+  { href: "/dashboard/creator", label: { nl: "Creator", en: "Creator" }, icon: Clapperboard, creatorOnly: true },
+  { href: "/dashboard/approvals", label: { nl: "Goedkeuringen", en: "Approvals" }, icon: Image },
+  { href: "/dashboard/budget", label: { nl: "Budget", en: "Budget" }, icon: Wallet },
+  { href: "/dashboard/brain", label: { nl: "Brain", en: "Brain" }, icon: Sparkles },
+  { href: "/dashboard/chat", label: { nl: "Vraag Stevin", en: "Ask Stevin" }, icon: MessageCircle },
   // {slug} wordt client-side ingevuld via clientSlug. Adminonly-flag toont 'm alleen voor admins.
-  { href: "/dashboard/__SLUG__/integrations", label: "Koppelingen", icon: Plug, adminOnly: true, slugSlot: true },
-  { href: "/dashboard/account", label: "Account", icon: UserCircle },
+  { href: "/dashboard/__SLUG__/integrations", label: { nl: "Koppelingen", en: "Integrations" }, icon: Plug, adminOnly: true, slugSlot: true },
+  { href: "/dashboard/account", label: { nl: "Account", en: "Account" }, icon: UserCircle },
 ];
+
+interface ShellCopy {
+  impersonation: string;
+  close: string;
+  menu: string;
+  viaAgency: string;
+  logout: string;
+}
+
+const COPY: Record<Lang, ShellCopy> = {
+  nl: {
+    impersonation: "Je bekijkt dit portaal als consultant (read-only), dit is wat de klant ziet",
+    close: "Sluiten",
+    menu: "Menu",
+    viaAgency: "via je bureau",
+    logout: "Uitloggen",
+  },
+  en: {
+    impersonation: "You are viewing this portal as a consultant (read-only), this is what the client sees",
+    close: "Close",
+    menu: "Menu",
+    viaAgency: "via your agency",
+    logout: "Log out",
+  },
+};
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
+  const lang = useLanguage();
+  const c = COPY[lang];
   const [mobileOpen, setMobileOpen] = useState(false);
   const [clientName, setClientName] = useState("");
   const [userEmail, setUserEmail] = useState("");
@@ -46,6 +75,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [impersonating, setImpersonating] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
 
+  // De root-layout zet lang="nl" omdat die server-side draait en de klanttaal
+  // niet kent. Hier is die wel bekend, dus zetten we het attribuut bij voor
+  // schermlezers, browservertaling en afbreken van woorden.
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
+
   useEffect(() => {
     const client = getClient();
     let user = getUser();
@@ -53,7 +89,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     if (user) {
       setUserEmail(user.email);
     } else {
-      // No portal user — check Supabase session (Google OAuth)
+      // No portal user, check Supabase session (Google OAuth)
       const supabase = createSupabaseClient();
       supabase.auth.getSession().then(({ data: { session } }: { data: { session: { user: { email: string | null } } | null } }) => {
         if (session?.user) {
@@ -101,12 +137,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       {impersonating && (
         <div className="bg-warning text-black px-4 py-2 text-center text-sm font-medium flex items-center justify-center gap-2 z-50">
           <ShieldAlert className="w-4 h-4" />
-          Je bekijkt dit portaal als consultant (read-only) &mdash; dit is wat de klant ziet
+          {c.impersonation}
           <button
             onClick={() => { clearAuth(); window.close(); }}
             className="ml-3 px-2 py-0.5 bg-black/10 rounded text-xs hover:bg-black/20 transition"
           >
-            Sluiten
+            {c.close}
           </button>
         </div>
       )}
@@ -140,7 +176,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 }`}
               >
                 <item.icon className="w-4 h-4" />
-                {item.label}
+                {item.label[lang]}
               </a>
             );
           })}
@@ -156,7 +192,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             className="flex items-center gap-3 px-3 py-2 w-full rounded-2xl text-sm text-danger hover:bg-danger-light transition"
           >
             <LogOut className="w-4 h-4" />
-            Uitloggen
+            {c.logout}
           </button>
         </div>
       </aside>
@@ -170,7 +206,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             className="h-7 w-auto max-w-[132px] object-contain"
           />
         </div>
-        <button onClick={() => setMobileOpen(!mobileOpen)} aria-label="Menu" className="p-2">
+        <button onClick={() => setMobileOpen(!mobileOpen)} aria-label={c.menu} className="p-2">
           {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
         </button>
       </div>
@@ -197,7 +233,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     }`}
                   >
                     <item.icon className="w-5 h-5" />
-                    {item.label}
+                    {item.label[lang]}
                   </a>
                 );
               })}
@@ -208,7 +244,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                 className="flex items-center gap-3 px-3 py-2 w-full text-sm text-danger"
               >
                 <LogOut className="w-4 h-4" />
-                Uitloggen
+                {c.logout}
               </button>
             </div>
           </div>
@@ -225,7 +261,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             )}
             {(orgType === "agency" || orgType === "agency_client") && (
               <span className="text-[11px] font-medium text-muted-foreground rounded-full border border-border px-2 py-0.5">
-                via je bureau
+                {c.viaAgency}
               </span>
             )}
           </div>
@@ -245,7 +281,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
       </div>
 
-      {/* Terms acceptance modal — blocks usage until accepted */}
+      {/* Terms acceptance modal, blocks usage until accepted */}
       {showTerms && <TermsModal onAccepted={() => setShowTerms(false)} />}
       <FeedbackWidget />
     </div>

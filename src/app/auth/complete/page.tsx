@@ -6,7 +6,7 @@ import { createClient } from "@/lib/supabase-browser";
 import { setAuth } from "@/lib/auth";
 
 /**
- * /auth/complete — Session is already established (code exchange done server-side).
+ * /auth/complete, Session is already established (code exchange done server-side).
  * This page fetches portal info from Hub and stores it in localStorage.
  */
 export default function AuthCompletePage() {

@@ -76,6 +76,7 @@ const SOURCE_LABELS: Record<string, string> = {
   reddit: "reddit",
   campaigns: "campagnes",
   campagnes: "campagnes",
+  "eigen kanaal": "eigen kanaal",
   creatives: "creatives",
   creaties: "creatives",
   outcomes: "resultaten",
@@ -90,6 +91,7 @@ const SOURCE_LABELS: Record<string, string> = {
 const SOURCE_LABELS_EN: Record<string, string> = {
   campaigns: "campaigns",
   campagnes: "campaigns",
+  "eigen kanaal": "own channel",
   creatives: "creatives",
   creaties: "creatives",
   briefings: "briefings",
@@ -152,7 +154,7 @@ function BrainContent() {
   // Het dossier bestaat alleen voor creator-klanten. Zolang /me niet binnen
   // is tonen we niets, anders flitst de kaart even voor het dossier langs.
   const isCreator = me?.creator === true;
-  const language: ArchiveLang = me?.creator && me.language === "en" ? "en" : "nl";
+  const language: ArchiveLang = me?.language === "en" ? "en" : "nl";
   const copy = PAGE_COPY[language];
   const locale = language === "en" ? "en-GB" : "nl-NL";
   const showRecord = isCreator && view === "record";
@@ -210,7 +212,7 @@ function BrainContent() {
           </div>
 
           <div className="rounded-xl border border-border-subtle bg-[#fbfcfe]">
-            <BrainConstellation nodes={data.nodes} edges={data.edges} />
+            <BrainConstellation nodes={data.nodes} edges={data.edges} lang={language} />
           </div>
 
           <p className="mt-3 text-[12px] leading-snug text-muted-foreground">{copy.dragHint}</p>

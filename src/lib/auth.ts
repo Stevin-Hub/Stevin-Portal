@@ -1,5 +1,5 @@
 /**
- * Portal auth client — Supabase Auth (synced with Desk).
+ * Portal auth client, Supabase Auth (synced with Desk).
  * Migrated from custom JWT to Supabase for single auth system.
  * Function signatures preserved for backward compatibility.
  */
