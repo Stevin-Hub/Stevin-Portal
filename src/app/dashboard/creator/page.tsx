@@ -160,7 +160,7 @@ const COPY: Record<Lang, Copy> = {
       `Kanaal: ${subscribers} abonnees, ${change} in ${days} dagen.`,
     tableTitle: "Wat deed wat, tegen je eigen normaal",
     tableIntro:
-      "De laatste 90 dagen, gesorteerd op nieuwe abonnees. De multiplier vergelijkt views per dag met de mediaan binnen hetzelfde formaat en dezelfde lengteklasse. Klik op een rij voor de retentiecurve.",
+      "De laatste 90 dagen, gesorteerd op nieuwe abonnees. De vergelijking kijkt naar dezelfde leeftijd: je views op dag 7 tegen de mediaan van je andere video's van dat formaat en die lengte op dag 7. Klik op een rij voor de retentiecurve.",
     noVideos: "Nog geen video's in dit venster.",
     labelLongForm: "Long-form",
     labelShorts: "Shorts",
@@ -168,7 +168,7 @@ const COPY: Record<Lang, Copy> = {
     inlineShorts: "Shorts",
     tableEmpty: (label) => `Nog geen ${label} in dit venster.`,
     tableFootnote: (minSample) =>
-      `Een lege multiplier betekent minder dan ${minSample} video's in die lengteklasse, dan is er geen mediaan om tegen te vergelijken. Retentie is het gemiddelde percentage dat bekeken is, met het verschil tot de mediaan van de klasse in punten.`,
+      `Leeg betekent dat er nog niet genoeg is om eerlijk mee te vergelijken: de video is nog te jong voor het meetpunt, of er zijn minder dan ${minSample} vergelijkbare video's met een meting op datzelfde punt. Liever leeg dan een cijfer dat vooral leeftijd meet. Retentie is het gemiddelde percentage dat bekeken is, met het verschil tot de mediaan van de klasse in punten.`,
     colVideo: "Video",
     colLength: "Lengte",
     colAge: "Leeftijd",
@@ -219,7 +219,7 @@ const COPY: Record<Lang, Copy> = {
       `Channel: ${subscribers} subscribers, ${change} in ${days} days.`,
     tableTitle: "What did what, against your own normal",
     tableIntro:
-      "Last 90 days, sorted by subscribers gained. The multiplier compares views per day with the median within the same format and length class. Click a row for the retention curve.",
+      "Last 90 days, sorted by subscribers gained. The comparison is age-for-age: your views on day 7 against the median of your other videos of that format and length on day 7. Click a row for the retention curve.",
     noVideos: "No videos in this window yet.",
     labelLongForm: "Long-form",
     labelShorts: "Shorts",
@@ -227,7 +227,7 @@ const COPY: Record<Lang, Copy> = {
     inlineShorts: "Shorts",
     tableEmpty: (label) => `No ${label} in this window.`,
     tableFootnote: (minSample) =>
-      `An empty multiplier means fewer than ${minSample} videos in that length class; there is no median to compare against. Retention is the average percentage watched, with the difference from the class median in points.`,
+      `Empty means there is not enough to compare fairly yet: the video is too young for the checkpoint, or fewer than ${minSample} comparable videos have a reading at that same point. Better empty than a number that mostly measures age. Retention is the average percentage watched, with the difference from the class median in points.`,
     colVideo: "Video",
     colLength: "Length",
     colAge: "Age",
