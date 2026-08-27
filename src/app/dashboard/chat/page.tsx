@@ -90,6 +90,19 @@ const COPY: Record<Lang, Copy> = {
   },
 };
 
+/**
+ * Ging de vraag over een week, dan hoort er een weekgrafiek te staan en geen
+ * maandgrafiek. Bewust een woordcheck in de frontend en geen tweede modelaanroep:
+ * dit hoeft niets te kosten, en het kan niets verzinnen.
+ */
+function vraagEenheid(vraag?: string): "maand" | "week" {
+  if (!vraag) return "maand";
+  const v = vraag.toLowerCase();
+  if (/\b(maand|maanden|kwartaal|zomer|jaar|seizoen|month|quarter|summer|year)\b/.test(v)) return "maand";
+  if (/\b(week|weken|weekly|deze week|vorige week|afgelopen 7|7 dagen)\b/.test(v)) return "week";
+  return "maand";
+}
+
 export default function ChatPage() {
   return (
     <AuthGuard>
@@ -113,6 +126,7 @@ function ChatContent({ userName }: { userName: string }) {
   // De grafiek tekent uit dezelfde reeks die de chat als tekst krijgt. Een keer
   // ophalen is genoeg: het zijn maandtotalen, die veranderen niet per vraag.
   const [months, setMonths] = useState<MonthPoint[]>([]);
+  const [weeks, setWeeks] = useState<MonthPoint[]>([]);
   // Per antwoord de opgemaakte HTML, zodat de PDF-knop exact exporteert wat de
   // klant ziet in plaats van de markdown opnieuw te renderen.
   const bubbleRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -124,8 +138,8 @@ function ChatContent({ userName }: { userName: string }) {
   copyRef.current = c;
 
   useEffect(() => {
-    portalFetch<{ months: MonthPoint[] }>("/chat/series")
-      .then((d) => setMonths(d.months || []))
+    portalFetch<{ months: MonthPoint[]; weeks: MonthPoint[] }>("/chat/series")
+      .then((d) => { setMonths(d.months || []); setWeeks(d.weeks || []); })
       .catch(() => { /* zonder grafiek blijft de tekst gewoon staan */ });
   }, []);
 
@@ -304,7 +318,12 @@ function ChatContent({ userName }: { userName: string }) {
                     {msg.content}
                   </ReactMarkdown>
                   {i === messages.length - 1 && months.length > 0 && (
-                    <MetricsChart months={months} lang={lang} />
+                    <MetricsChart
+                      months={months}
+                      weeks={weeks}
+                      lang={lang}
+                      eenheid={vraagEenheid([...messages.slice(0, i)].reverse().find((m) => m.role === "user")?.content)}
+                    />
                   )}
                   </>
                 ) : (

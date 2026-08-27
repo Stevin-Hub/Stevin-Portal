@@ -23,27 +23,49 @@ export interface MonthPoint {
 }
 
 const COPY = {
-  nl: { titel: "Resultaten per maand", ditJaar: "dit jaar", vorigJaar: "zelfde maand vorig jaar", leeg: "Nog geen maandcijfers." },
-  en: { titel: "Results per month", ditJaar: "this year", vorigJaar: "same month last year", leeg: "No monthly data yet." },
+  nl: {
+    titelMaand: "Resultaten per maand",
+    titelWeek: "Resultaten per week",
+    ditJaar: "dit jaar",
+    vorigJaar: "zelfde maand vorig jaar",
+    leeg: "Nog geen cijfers.",
+  },
+  en: {
+    titelMaand: "Results per month",
+    titelWeek: "Results per week",
+    ditJaar: "this year",
+    vorigJaar: "same month last year",
+    leeg: "No data yet.",
+  },
 } as const;
 
 export default function MetricsChart({
   months,
+  weeks,
   lang,
   maanden = 12,
+  eenheid = "maand",
 }: {
   months: MonthPoint[];
+  weeks?: MonthPoint[];
   lang: Lang;
   maanden?: number;
+  /** Vroeg de klant naar een week, dan hoort er een weekgrafiek te staan. */
+  eenheid?: "maand" | "week";
 }) {
   const t = COPY[lang];
-  const opKey = new Map(months.map((m) => [m.key, m]));
+  const perWeek = eenheid === "week" && weeks && weeks.length > 0;
+  const titel = perWeek ? t.titelWeek : t.titelMaand;
+  const reeks = perWeek ? weeks : months;
+  const opKey = new Map(reeks.map((m) => [m.key, m]));
 
   // Een klant die net begonnen is heeft geen vorig jaar. Dan geen lege lichte
   // staven en geen legenda die naar niets verwijst: gewoon de maanden die er zijn.
-  const eersteMetData = months.findIndex((m) => m.conversions > 0 || m.cost > 0);
-  const gevuld = eersteMetData === -1 ? months : months.slice(eersteMetData);
-  const data = gevuld.slice(-maanden).map((m) => {
+  const eersteMetData = reeks.findIndex((m) => m.conversions > 0 || m.cost > 0);
+  const gevuld = eersteMetData === -1 ? reeks : reeks.slice(eersteMetData);
+  const data = gevuld.slice(perWeek ? -10 : -maanden).map((m) => {
+    // Jaar-op-jaar heeft alleen betekenis per maand; per week schuiven de dagen.
+    if (perWeek) return { ...m, vorigJaar: null as number | null };
     const [jaar, maand] = m.key.split("-");
     const vorig = opKey.get(`${Number(jaar) - 1}-${maand}`);
     return { ...m, vorigJaar: vorig && (vorig.conversions > 0 || vorig.cost > 0) ? vorig.conversions : null };
@@ -67,9 +89,9 @@ export default function MetricsChart({
 
   return (
     <div className="mt-3">
-      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label={t.titel}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-auto" role="img" aria-label={titel}>
         <text x={padL} y={12} fontSize="11" fontWeight="600" fill="#1f2933">
-          {t.titel}
+          {titel}
         </text>
         {/* Legenda in de SVG, zodat hij de export naar PDF overleeft. */}
         {toonVorigJaar && (
