@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { Send, Bot, User, AlertTriangle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import ChatMessageActions from "@/components/ChatMessageActions";
+import MetricsChart, { type MonthPoint } from "@/components/MetricsChart";
 
 interface Message {
   id?: string;
@@ -109,6 +110,9 @@ function ChatContent({ userName }: { userName: string }) {
   const [limitReached, setLimitReached] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [clientName, setClientName] = useState("");
+  // De grafiek tekent uit dezelfde reeks die de chat als tekst krijgt. Een keer
+  // ophalen is genoeg: het zijn maandtotalen, die veranderen niet per vraag.
+  const [months, setMonths] = useState<MonthPoint[]>([]);
   // Per antwoord de opgemaakte HTML, zodat de PDF-knop exact exporteert wat de
   // klant ziet in plaats van de markdown opnieuw te renderen.
   const bubbleRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -118,6 +122,12 @@ function ChatContent({ userName }: { userName: string }) {
   // pakt de foutmelding wel de taal die op dat moment bekend is.
   const copyRef = useRef(c);
   copyRef.current = c;
+
+  useEffect(() => {
+    portalFetch<{ months: MonthPoint[] }>("/chat/series")
+      .then((d) => setMonths(d.months || []))
+      .catch(() => { /* zonder grafiek blijft de tekst gewoon staan */ });
+  }, []);
 
   useEffect(() => {
     portalFetch<{ client?: { name?: string } | null }>("/me")
@@ -281,6 +291,7 @@ function ChatContent({ userName }: { userName: string }) {
                 }`}
               >
                 {msg.role === "assistant" ? (
+                  <>
                   <ReactMarkdown
                     components={{
                       p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
@@ -292,6 +303,10 @@ function ChatContent({ userName }: { userName: string }) {
                   >
                     {msg.content}
                   </ReactMarkdown>
+                  {i === messages.length - 1 && months.length > 0 && (
+                    <MetricsChart months={months} lang={lang} />
+                  )}
+                  </>
                 ) : (
                   msg.content
                 )}

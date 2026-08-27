@@ -138,6 +138,7 @@ export default function ChatMessageActions({
   .antwoord li { margin-bottom: 3px; }
   .antwoord p { margin: 0 0 10px; }
   .antwoord strong { font-weight: 600; }
+  .antwoord svg { width: 100%; height: auto; margin-top: 8px; }
   footer { margin-top: 28px; padding-top: 10px; border-top: 1px solid #d6dde8;
            font-size: 8.5pt; color: #64748b; }
 </style>
