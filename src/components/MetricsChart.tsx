@@ -38,12 +38,18 @@ export default function MetricsChart({
 }) {
   const t = COPY[lang];
   const opKey = new Map(months.map((m) => [m.key, m]));
-  const data = months.slice(-maanden).map((m) => {
+
+  // Een klant die net begonnen is heeft geen vorig jaar. Dan geen lege lichte
+  // staven en geen legenda die naar niets verwijst: gewoon de maanden die er zijn.
+  const eersteMetData = months.findIndex((m) => m.conversions > 0 || m.cost > 0);
+  const gevuld = eersteMetData === -1 ? months : months.slice(eersteMetData);
+  const data = gevuld.slice(-maanden).map((m) => {
     const [jaar, maand] = m.key.split("-");
     const vorig = opKey.get(`${Number(jaar) - 1}-${maand}`);
-    return { ...m, vorigJaar: vorig ? vorig.conversions : null };
+    return { ...m, vorigJaar: vorig && (vorig.conversions > 0 || vorig.cost > 0) ? vorig.conversions : null };
   });
   if (data.length === 0) return <p className="text-xs text-muted-foreground">{t.leeg}</p>;
+  const toonVorigJaar = data.some((d) => d.vorigJaar !== null);
 
   const W = 640;
   const H = 210;
@@ -57,7 +63,7 @@ export default function MetricsChart({
   const max = Math.max(...data.flatMap((d) => [d.conversions, d.vorigJaar ?? 0]), 1);
   const stapX = innerW / data.length;
   const paarB = Math.min(34, stapX * 0.62);
-  const staafB = paarB / 2 - 1;
+  const staafB = toonVorigJaar ? paarB / 2 - 1 : paarB;
 
   return (
     <div className="mt-3">
@@ -66,21 +72,25 @@ export default function MetricsChart({
           {t.titel}
         </text>
         {/* Legenda in de SVG, zodat hij de export naar PDF overleeft. */}
-        <rect x={padL} y={20} width={9} height={9} rx={2} fill="#3c8eff" />
-        <text x={padL + 14} y={28} fontSize="9" fill="#64748b">
-          {t.ditJaar}
-        </text>
-        <rect x={padL + 14 + t.ditJaar.length * 4.6 + 12} y={20} width={9} height={9} rx={2} fill="#c7d9f7" />
-        <text x={padL + 14 + t.ditJaar.length * 4.6 + 26} y={28} fontSize="9" fill="#64748b">
-          {t.vorigJaar}
-        </text>
+        {toonVorigJaar && (
+          <>
+            <rect x={padL} y={20} width={9} height={9} rx={2} fill="#3c8eff" />
+            <text x={padL + 14} y={28} fontSize="9" fill="#64748b">
+              {t.ditJaar}
+            </text>
+            <rect x={padL + 14 + t.ditJaar.length * 4.6 + 12} y={20} width={9} height={9} rx={2} fill="#c7d9f7" />
+            <text x={padL + 14 + t.ditJaar.length * 4.6 + 26} y={28} fontSize="9" fill="#64748b">
+              {t.vorigJaar}
+            </text>
+          </>
+        )}
 
         {data.map((d, i) => {
           const midden = padL + i * stapX + stapX / 2;
           const hNu = (d.conversions / max) * innerH;
           const hVorig = d.vorigJaar !== null ? (d.vorigJaar / max) * innerH : 0;
           const xVorig = midden - staafB - 1;
-          const xNu = midden + 1;
+          const xNu = toonVorigJaar ? midden + 1 : midden - staafB / 2;
           return (
             <g key={d.key}>
               {d.vorigJaar !== null && (
