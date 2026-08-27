@@ -51,7 +51,7 @@ const COPY: Record<Lang, Copy> = {
   nl: {
     title: "Stevin Assistant",
     aiNotice: "Je praat hier met AI, niet met je consultant. Stel je vraag over je campagnes in gewone taal.",
-    fairUse: "Je nadert de maandelijkse Fair Use limiet. Neem contact op met je specialist als je meer analyses nodig hebt.",
+    fairUse: "Je gebruikt deze maand veel analyses. Loop je tegen de grens aan, laat het je specialist weten, dan kijken we samen wat je nodig hebt.",
     greeting: (name) => `Hallo ${name}!`,
     intro: "Ik ben de AI-assistent van Stevin. Ik help je de resultaten te begrijpen en je campagnes te optimaliseren.",
     suggestions: [
@@ -59,7 +59,7 @@ const COPY: Record<Lang, Copy> = {
       "Wat zijn mijn resultaten deze maand?",
       "Waar gaat het meeste budget naartoe?",
     ],
-    limitBannerTitle: "Maandelijks chatbudget bereikt",
+    limitBannerTitle: "Je analyses voor deze maand zijn op",
     limitBannerBody: "Neem contact op met je consultant voor extra tokens.",
     limitMessage:
       "Het maandelijkse chatbudget is bereikt. Neem contact op met je consultant voor meer tokens of wacht tot volgende maand.",
@@ -71,7 +71,7 @@ const COPY: Record<Lang, Copy> = {
   en: {
     title: "Stevin Assistant",
     aiNotice: "You are talking to AI here, not to your consultant. Ask about your campaigns in plain language.",
-    fairUse: "You are close to the monthly fair use limit. Contact your specialist if you need more analyses.",
+    fairUse: "You have used a lot of analyses this month. If you run into the limit, let your specialist know and we will look at what you need.",
     greeting: (name) => `Hello ${name}!`,
     intro: "I am the AI assistant of Stevin. I help you understand the results and improve your campaigns.",
     suggestions: [
@@ -79,7 +79,7 @@ const COPY: Record<Lang, Copy> = {
       "What are my results this month?",
       "Where does most of the budget go?",
     ],
-    limitBannerTitle: "Monthly chat budget reached",
+    limitBannerTitle: "Your analyses for this month are used up",
     limitBannerBody: "Contact your consultant for extra tokens.",
     limitMessage:
       "The monthly chat budget has been reached. Contact your consultant for more tokens or wait until next month.",
