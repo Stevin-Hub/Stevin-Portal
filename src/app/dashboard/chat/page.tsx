@@ -7,6 +7,7 @@ import AuthGuard from "@/components/AuthGuard";
 import { toast } from "sonner";
 import { Send, Bot, User, AlertTriangle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
+import ChatMessageActions from "@/components/ChatMessageActions";
 
 interface Message {
   id?: string;
@@ -107,12 +108,22 @@ function ChatContent({ userName }: { userName: string }) {
   const [usage, setUsage] = useState<TokenUsage | null>(null);
   const [limitReached, setLimitReached] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const [clientName, setClientName] = useState("");
+  // Per antwoord de opgemaakte HTML, zodat de PDF-knop exact exporteert wat de
+  // klant ziet in plaats van de markdown opnieuw te renderen.
+  const bubbleRefs = useRef<Record<number, HTMLDivElement | null>>({});
 
   // De geschiedenis wordt bij het openen een keer opgehaald, dus die effect-hook
   // mag niet op de taal reageren (dat zou een tweede call geven). Via de ref
   // pakt de foutmelding wel de taal die op dat moment bekend is.
   const copyRef = useRef(c);
   copyRef.current = c;
+
+  useEffect(() => {
+    portalFetch<{ client?: { name?: string } | null }>("/me")
+      .then((me) => { if (me.client?.name) setClientName(me.client.name); })
+      .catch(() => { /* de naam is versiering op de PDF, geen reden om te storen */ });
+  }, []);
 
   useEffect(() => {
     portalFetch<{ messages: Message[] }>("/chat?limit=50")
@@ -160,6 +171,31 @@ function ChatContent({ userName }: { userName: string }) {
           { role: "assistant", content: c.genericError },
         ]);
       }
+    } finally {
+      setSending(false);
+    }
+  }
+
+  /**
+   * Dezelfde vraag nog een keer stellen. De Hub gooit het vorige antwoord weg
+   * en slaat de vraag niet nog een keer op, anders staan er twee verschillende
+   * antwoorden op dezelfde vraag onder elkaar.
+   */
+  async function handleRegenerate(index: number) {
+    if (sending || limitReached) return;
+    const vraag = [...messages.slice(0, index)].reverse().find((m) => m.role === "user");
+    if (!vraag) return;
+
+    setSending(true);
+    try {
+      const data = await portalFetch<{ response: string; usage?: TokenUsage }>("/chat", {
+        method: "POST",
+        body: JSON.stringify({ message: vraag.content, regenerate: true }),
+      });
+      setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, content: data.response } : m)));
+      if (data.usage) setUsage(data.usage);
+    } catch (err: any) {
+      toast.error(err.message || c.genericError);
     } finally {
       setSending(false);
     }
@@ -223,8 +259,8 @@ function ChatContent({ userName }: { userName: string }) {
           </div>
         ) : (
           messages.map((msg, i) => (
+            <div key={i}>
             <div
-              key={i}
               className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
             >
               <div
@@ -237,6 +273,7 @@ function ChatContent({ userName }: { userName: string }) {
                 {msg.role === "user" ? <User className="w-4 h-4" /> : <Bot className="w-4 h-4" />}
               </div>
               <div
+                ref={(el) => { if (msg.role === "assistant") bubbleRefs.current[i] = el; }}
                 className={`max-w-[80%] px-4 py-2.5 rounded-2xl text-sm leading-relaxed ${
                   msg.role === "user"
                     ? "bg-accent text-white rounded-br-md"
@@ -259,6 +296,18 @@ function ChatContent({ userName }: { userName: string }) {
                   msg.content
                 )}
               </div>
+            </div>
+            {msg.role === "assistant" && (
+              <ChatMessageActions
+                content={msg.content}
+                question={[...messages.slice(0, i)].reverse().find((m) => m.role === "user")?.content || null}
+                getRenderedHtml={() => bubbleRefs.current[i]?.innerHTML || null}
+                clientName={clientName}
+                lang={lang}
+                onRegenerate={i === messages.length - 1 ? () => handleRegenerate(i) : null}
+                busy={sending}
+              />
+            )}
             </div>
           ))
         )}
