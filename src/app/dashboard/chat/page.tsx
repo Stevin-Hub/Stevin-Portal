@@ -95,6 +95,19 @@ const COPY: Record<Lang, Copy> = {
  * maandgrafiek. Bewust een woordcheck in de frontend en geen tweede modelaanroep:
  * dit hoeft niets te kosten, en het kan niets verzinnen.
  */
+/**
+ * Een grafiek hoort alleen onder een antwoord dat over cijfers gaat. Op "doet
+ * Stevin goed werk" hoort geen staafdiagram. Deterministisch bepaald uit de
+ * tekst die er al is: geen tweede modelaanroep, dus gratis en het kan niets
+ * verzinnen.
+ */
+function gaatOverCijfers(antwoord: string): boolean {
+  if (!/\d/.test(antwoord)) return false;
+  return /(€|resultaat|resultaten|conversie|clicks|kliks|impressie|cpa|spend|uitgegeven|maand|week|zomer|kwartaal|jaar)/i.test(
+    antwoord,
+  );
+}
+
 function vraagEenheid(vraag?: string): "maand" | "week" {
   if (!vraag) return "maand";
   const v = vraag.toLowerCase();
@@ -317,7 +330,7 @@ function ChatContent({ userName }: { userName: string }) {
                   >
                     {msg.content}
                   </ReactMarkdown>
-                  {i === messages.length - 1 && months.length > 0 && (
+                  {i === messages.length - 1 && months.length > 0 && gaatOverCijfers(msg.content) && (
                     <MetricsChart
                       months={months}
                       weeks={weeks}
