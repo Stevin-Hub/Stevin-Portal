@@ -35,6 +35,8 @@ interface Copy {
   tryAgain: string;
   error: string;
   linkFailed: string;
+  googleButton: string;
+  orDivider: string;
 }
 
 const COPY: Record<Lang, Copy> = {
@@ -53,6 +55,8 @@ const COPY: Record<Lang, Copy> = {
     tryAgain: "probeer opnieuw",
     error: "Er ging iets mis. Probeer het opnieuw.",
     linkFailed: "Die inloglink werkte niet: hij is verlopen, al gebruikt, of geopend in een andere browser dan waar je hem aanvroeg. Vraag hieronder een nieuwe aan en open hem in deze browser.",
+    googleButton: "Inloggen met Google",
+    orDivider: "of",
   },
   en: {
     welcome: "Welcome to your dashboard",
@@ -69,6 +73,8 @@ const COPY: Record<Lang, Copy> = {
     tryAgain: "try again",
     error: "Something went wrong. Please try again.",
     linkFailed: "That login link did not work: it expired, was already used, or was opened in a different browser than the one you requested it in. Request a new one below and open it in this browser.",
+    googleButton: "Sign in with Google",
+    orDivider: "or",
   },
 };
 
@@ -81,6 +87,7 @@ export default function LoginPage() {
   // De callback stuurt bij een mislukte link terug met ?error=...; dat bleef
   // onzichtbaar, dus je zag alleen het lege inlogscherm terug (W-069).
   const [linkFailed, setLinkFailed] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
   useEffect(() => {
     const err = new URLSearchParams(window.location.search).get("error");
     if (err === "auth_failed" || err === "link_invalid" || err === "no_code" || err === "no_session") setLinkFailed(true);
@@ -115,6 +122,26 @@ export default function LoginPage() {
       toast.error(c.error);
     } finally {
       setLoading(false);
+    }
+  }
+
+  // W-075: /auth/callback verwerkt al de OAuth-code (exchangeCodeForSession),
+  // en lib/auth.ts las een Supabase OAuth-sessie al als terugval; er
+  // ontbrak alleen deze knop.
+  async function handleGoogleLogin() {
+    setGoogleLoading(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+      if (error) throw error;
+    } catch {
+      toast.error(c.error);
+      setGoogleLoading(false);
     }
   }
 
@@ -170,6 +197,38 @@ export default function LoginPage() {
               {c.linkFailed}
             </p>
           )}
+
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={googleLoading}
+            className="flex w-full items-center justify-center gap-2.5 rounded-lg border border-border bg-background px-4 py-2.5 text-sm font-medium text-foreground hover:bg-card-hover transition disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {googleLoading ? (
+              <svg className="h-4 w-4 animate-spin text-muted-foreground" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+              </svg>
+            ) : (
+              <svg className="h-4 w-4" viewBox="0 0 24 24">
+                <path fill="#4285F4" d="M23.52 12.27c0-.85-.08-1.67-.22-2.45H12v4.64h6.47a5.53 5.53 0 01-2.4 3.63v3h3.88c2.27-2.09 3.57-5.17 3.57-8.82z" />
+                <path fill="#34A853" d="M12 24c3.24 0 5.95-1.07 7.93-2.9l-3.87-3.01c-1.08.72-2.45 1.15-4.06 1.15-3.13 0-5.78-2.11-6.73-4.96H1.27v3.11A11.99 11.99 0 0012 24z" />
+                <path fill="#FBBC05" d="M5.27 14.28A7.2 7.2 0 014.9 12c0-.79.14-1.56.37-2.28V6.61H1.27A11.99 11.99 0 000 12c0 1.94.46 3.77 1.27 5.39l4-3.11z" />
+                <path fill="#EA4335" d="M12 4.75c1.76 0 3.35.61 4.6 1.8l3.44-3.44C17.94 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.27 6.61l4 3.11C6.22 6.86 8.87 4.75 12 4.75z" />
+              </svg>
+            )}
+            {c.googleButton}
+          </button>
+
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-border" />
+            </div>
+            <div className="relative flex justify-center text-xs">
+              <span className="bg-card px-2 text-muted">{c.orDivider}</span>
+            </div>
+          </div>
+
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium mb-1.5">
