@@ -34,6 +34,7 @@ interface Copy {
   linkValidity: string;
   tryAgain: string;
   error: string;
+  linkFailed: string;
 }
 
 const COPY: Record<Lang, Copy> = {
@@ -51,6 +52,7 @@ const COPY: Record<Lang, Copy> = {
     linkValidity: "De link is 15 minuten geldig. Niet ontvangen? Check je spam of",
     tryAgain: "probeer opnieuw",
     error: "Er ging iets mis. Probeer het opnieuw.",
+    linkFailed: "Die inloglink werkte niet: hij is verlopen, al gebruikt, of geopend in een andere browser dan waar je hem aanvroeg. Vraag hieronder een nieuwe aan en open hem in deze browser.",
   },
   en: {
     welcome: "Welcome to your dashboard",
@@ -66,6 +68,7 @@ const COPY: Record<Lang, Copy> = {
     linkValidity: "The link is valid for 15 minutes. Nothing received? Check your spam folder or",
     tryAgain: "try again",
     error: "Something went wrong. Please try again.",
+    linkFailed: "That login link did not work: it expired, was already used, or was opened in a different browser than the one you requested it in. Request a new one below and open it in this browser.",
   },
 };
 
@@ -75,6 +78,13 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [lang, setLang] = useState<Lang>("nl");
   const router = useRouter();
+  // De callback stuurt bij een mislukte link terug met ?error=...; dat bleef
+  // onzichtbaar, dus je zag alleen het lege inlogscherm terug (W-069).
+  const [linkFailed, setLinkFailed] = useState(false);
+  useEffect(() => {
+    const err = new URLSearchParams(window.location.search).get("error");
+    if (err === "auth_failed" || err === "link_invalid" || err === "no_code" || err === "no_session") setLinkFailed(true);
+  }, []);
 
   useEffect(() => {
     const browserLang = typeof navigator !== "undefined" ? navigator.language : "";
@@ -155,6 +165,11 @@ export default function LoginPage() {
             {c.loginSubtitle}
           </p>
 
+          {linkFailed && (
+            <p className="mb-4 rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground" role="alert">
+              {c.linkFailed}
+            </p>
+          )}
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <label htmlFor="email" className="block text-sm font-medium mb-1.5">
