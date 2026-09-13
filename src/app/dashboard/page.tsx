@@ -117,6 +117,8 @@ interface Copy {
   view: string;
   changeTitle: string;
   changeIntro: (dagen: number, van: string, tot: string) => string;
+  /** De meetperiode van de cijfers zelf, zodat Overzicht, chat, grafiek en PDF dezelfde dagen noemen (W-124). */
+  periodLine: (van: string, tot: string) => string;
   changeNoCompare: string;
   coverageMissingDays: (n: number) => string;
   coverageStale: (datum: string) => string;
@@ -208,6 +210,7 @@ const COPY: Record<Lang, Copy> = {
     view: "Bekijken",
     changeTitle: "Wat veranderde er deze periode?",
     changeIntro: (dagen, van, tot) => `Vergeleken met de ${dagen} dagen ervoor (${van} t/m ${tot}).`,
+    periodLine: (van, tot) => `Cijfers van ${van} t/m ${tot}.`,
     changeNoCompare: "Geen vergelijking: de gegevens over deze periode zijn niet volledig. Je ziet de totalen van de dagen die wel gemeten zijn.",
     coverageMissingDays: (n) => `${n} ${n === 1 ? "dag" : "dagen"} in deze periode zonder gegevens.`,
     coverageStale: (datum) => `De laatste meting is van ${datum}.`,
@@ -298,6 +301,7 @@ const COPY: Record<Lang, Copy> = {
     view: "View",
     changeTitle: "What changed this period?",
     changeIntro: (dagen, van, tot) => `Compared with the ${dagen} days before (${van} to ${tot}).`,
+    periodLine: (van, tot) => `Figures from ${van} to ${tot}.`,
     changeNoCompare: "No comparison: the data for this period is not complete. You see the totals of the days that were measured.",
     coverageMissingDays: (n) => `${n} ${n === 1 ? "day" : "days"} in this period without data.`,
     coverageStale: (datum) => `The latest measurement is from ${datum}.`,
@@ -731,6 +735,7 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
           <div>
             <h2 className="text-lg font-bold tracking-[-0.01em]">{c.changeTitle}</h2>
             <p className="mt-1 max-w-3xl text-[13px] leading-snug text-muted-foreground">
+              {data.period?.since && data.period?.tot ? `${c.periodLine(data.period.since, data.period.tot)} ` : ""}
               {surface.vergelijkingMag && data.vorigePeriode
                 ? c.changeIntro(data.vorigePeriode.dagen, data.vorigePeriode.van, data.vorigePeriode.tot)
                 : c.changeNoCompare}
