@@ -209,7 +209,10 @@ function ChatContent({ userName }: { userName: string }) {
   }, []);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Alleen de berichtenlijst scrollen, niet de pagina: de schil heeft een
+    // vaste topbar en scrollIntoView zou de paginatitel daarachter schuiven.
+    const lijst = bottomRef.current?.parentElement;
+    if (lijst) lijst.scrollTo({ top: lijst.scrollHeight, behavior: "smooth" });
   }, [messages]);
 
   async function handleSend(e: React.FormEvent) {
@@ -291,8 +294,9 @@ function ChatContent({ userName }: { userName: string }) {
     );
   }
 
+  // Hoogte = scherm min de schil: mobiel 60 + 16 + 28 px, desktop 72 + 20 + 36 px (zie layout.tsx).
   return (
-    <div className="flex flex-col h-[calc(100vh-8rem)] lg:h-[calc(100vh-4rem)]">
+    <div className="flex flex-col h-[calc(100vh-104px)] md:h-[calc(100vh-128px)]">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold">{c.title}</h1>
