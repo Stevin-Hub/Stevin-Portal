@@ -62,7 +62,14 @@ export default function MetricsChart({
   // Een klant die net begonnen is heeft geen vorig jaar. Dan geen lege lichte
   // staven en geen legenda die naar niets verwijst: gewoon de maanden die er zijn.
   const eersteMetData = reeks.findIndex((m) => m.conversions > 0 || m.cost > 0);
-  const gevuld = eersteMetData === -1 ? reeks : reeks.slice(eersteMetData);
+  // W-124 fase 1, bevinding 2A.4: eersteMetData is ook -1 als GEEN ENKELE
+  // maand ooit iets heeft opgeleverd, en dat werd hier gelezen als "geen
+  // vorig jaar, toon dan gewoon alles". Voor een gloednieuwe klant is "alles"
+  // een reeks platte nulstaven, precies het beeld dat REGEL #3 verbiedt: oude
+  // of afwezige data die als een actueel nulresultaat wordt getoond. Nu:
+  // helemaal geen data ooit gemeten is de lege staat, geen grafiek.
+  if (eersteMetData === -1) return <p className="text-xs text-muted-foreground">{t.leeg}</p>;
+  const gevuld = reeks.slice(eersteMetData);
   const data = gevuld.slice(perWeek ? -10 : -maanden).map((m) => {
     // Jaar-op-jaar heeft alleen betekenis per maand; per week schuiven de dagen.
     if (perWeek) return { ...m, vorigJaar: null as number | null };
