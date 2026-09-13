@@ -179,7 +179,7 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         <div className="flex flex-col items-center mb-8">
           <img
-            src="/logo-light.svg"
+            src="/stevin-lockup-default.svg"
             alt="Stevin.AI"
             className="h-8 w-auto"
           />
