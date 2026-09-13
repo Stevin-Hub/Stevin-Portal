@@ -51,6 +51,12 @@ export interface DashboardData {
   } | null;
   /** Laatste dag waarvoor er ooit data is; null als er nog nooit iets gemeten is. */
   dataTot: string | null;
+  /**
+   * Dagen tussen vandaag en die laatste meting. Het rollende venster eindigt op
+   * de laatste gemeten dag, dus zonder dit getal zien cijfers van weken geleden
+   * er compleet uit (W-124, 13 september 2026).
+   */
+  dagenSindsLaatsteMeting: number | null;
   pendingApprovals: number;
   pendingBudgets: number;
   period: { days: number; since: string; tot: string; truncated: boolean };
@@ -116,6 +122,7 @@ interface Copy {
   coverageStale: (datum: string) => string;
   coveragePlatformMissing: string;
   coveragePreviousIncomplete: string;
+  staleData: (dagen: number, datum: string) => string;
   /** "waarvan 1.196 paginabezoeken, geen opdrachtmeting" (KPI-kaart). */
   softEventsNote: (beschrijving: string) => string;
   /** "Meta registreerde 1.341 resultaten. Daarvan waren 1.196 paginabezoeken. Dat is geen opdrachtmeting." */
@@ -206,6 +213,7 @@ const COPY: Record<Lang, Copy> = {
     coverageStale: (datum) => `De laatste meting is van ${datum}.`,
     coveragePlatformMissing: "Van een gekoppeld kanaal kwam in deze periode geen data binnen.",
     coveragePreviousIncomplete: "De periode ervoor is niet volledig gemeten, dus er is geen eerlijke vergelijking.",
+    staleData: (dagen, datum) => `Let op: de laatste meting is van ${datum}, ${dagen} dagen geleden. Je kijkt naar cijfers tot die dag, niet tot vandaag.`,
     softEventsNote: (beschrijving) => `waarvan ${beschrijving}, geen opdrachtmeting`,
     softEventsRow: (label, totaal, beschrijving) => `${label} registreerde ${totaal} resultaten. Daarvan waren ${beschrijving}. Dat is geen opdrachtmeting.`,
     eventNames: {
@@ -295,6 +303,7 @@ const COPY: Record<Lang, Copy> = {
     coverageStale: (datum) => `The latest measurement is from ${datum}.`,
     coveragePlatformMissing: "A connected channel delivered no data in this period.",
     coveragePreviousIncomplete: "The period before was not fully measured, so there is no fair comparison.",
+    staleData: (dagen, datum) => `Note: the latest measurement is from ${datum}, ${dagen} days ago. You are looking at figures up to that day, not up to today.`,
     softEventsNote: (beschrijving) => `of which ${beschrijving}, not a measure of orders`,
     softEventsRow: (label, totaal, beschrijving) => `${label} recorded ${totaal} results. Of those, ${beschrijving}. That is not a measure of orders.`,
     eventNames: {
@@ -734,6 +743,11 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
                   data.kwaliteit.redenen.includes("STALE_DATA") && data.kwaliteit.laatsteDatum ? c.coverageStale(data.kwaliteit.laatsteDatum) : null,
                   data.kwaliteit.redenen.includes("PLATFORM_MISSING") ? c.coveragePlatformMissing : null,
                 ].filter(Boolean).join(" ")}
+              </p>
+            )}
+            {typeof data.dagenSindsLaatsteMeting === "number" && data.dagenSindsLaatsteMeting >= 2 && data.dataTot && (
+              <p className="mt-1 max-w-3xl text-[13px] font-semibold leading-snug text-foreground">
+                {c.staleData(data.dagenSindsLaatsteMeting, data.dataTot)}
               </p>
             )}
             {data.kwaliteit?.status === "complete" && data.vorigePeriode && !data.vorigePeriode.volledig && (

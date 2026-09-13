@@ -8,13 +8,60 @@ import { toast } from "sonner";
 import { Send, Bot, User, AlertTriangle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import ChatMessageActions from "@/components/ChatMessageActions";
-import MetricsChart, { type MonthPoint, type Telling } from "@/components/MetricsChart";
+import MetricsChart, { type MonthPoint } from "@/components/MetricsChart";
+
+/**
+ * De momentopname die bij een antwoord hoort (W-124). De grafiek en de PDF
+ * lezen hier uitsluitend uit: bij openen wordt er niets opnieuw opgehaald of
+ * berekend. Een ouder antwoord zonder momentopname krijgt geen grafiek, in
+ * plaats van een reeks van vandaag onder een tekst van weken geleden.
+ */
+export interface AntwoordSnapshot {
+  versie: number;
+  antwoord: string;
+  vraag: string | null;
+  grafiek: { maanden: MonthPoint[]; weken: MonthPoint[]; eenheid: "maand" | "week" };
+  periode: { dagen7: { van: string; tot: string }; dagen30: { van: string; tot: string }; dagen90: { van: string; tot: string } };
+  laatsteMeetdag: string | null;
+  gebeurtenisdefinities: Array<{ platform: string; teltMee: string[]; zachtPerType: Array<{ actionType: string; aantal: number }> | null }>;
+  ontbrekendeGegevens: { status: string; redenen: string[]; ontbrekendeDagen: number; dagenAchter: number };
+  berekendeWaarden: Record<string, number>;
+  versies: { snapshot: number; rekenlaag: string; release: string | null };
+  gemaaktOp: string;
+}
 
 interface Message {
   id?: string;
   role: "user" | "assistant";
   content: string;
   created_at?: string;
+  /** Hoort bij DIT antwoord; null betekent geen grafiek, geen verse reeks (W-124). */
+  snapshot?: AntwoordSnapshot | null;
+}
+
+/**
+ * Kleinste veilige ingreep (W-124, 13 september 2026).
+ *
+ * De live Hub gaf op 13 september cijfers tot en met 26 augustus terwijl de
+ * brondata doorliep tot 12 september, en noemde augustus de lopende maand. De
+ * nieuwe context is gebouwd maar staat nog niet live. Zolang de Hub geen
+ * momentopname meestuurt bij een antwoord, draait daar de oude rekenlaag: dan
+ * belooft dit scherm geen betrouwbare cijfers, maar zegt het wat er aan de hand
+ * is. Zodra de fix live staat stuurt elk antwoord een momentopname mee en
+ * verdwijnt deze waarschuwing vanzelf, zonder dat iemand een vlag hoeft om te
+ * zetten.
+ */
+function ChatBetrouwbaarheidsWaarschuwing({ lang }: { lang: Lang }) {
+  const tekst =
+    lang === "en"
+      ? "These figures may be out of date. We found an answer with figures that stopped weeks before the measurement did. Until that is fixed, check a number with your consultant before you act on it."
+      : "Deze cijfers kunnen verouderd zijn. We vonden een antwoord met cijfers die weken eerder stopten dan de meting. Tot dat is opgelost: leg een getal naast je consultant voordat je er iets mee doet.";
+  return (
+    <div className="mb-4 flex items-start gap-3 rounded-xl border border-warning/30 bg-warning-light px-4 py-3">
+      <AlertTriangle className="mt-0.5 h-4 w-4 flex-none text-warning" />
+      <p className="text-[13px] leading-snug text-foreground">{tekst}</p>
+    </div>
+  );
 }
 
 interface TokenUsage {
@@ -108,14 +155,6 @@ function gaatOverCijfers(antwoord: string): boolean {
   );
 }
 
-function vraagEenheid(vraag?: string): "maand" | "week" {
-  if (!vraag) return "maand";
-  const v = vraag.toLowerCase();
-  if (/\b(maand|maanden|kwartaal|zomer|jaar|seizoen|month|quarter|summer|year)\b/.test(v)) return "maand";
-  if (/\b(week|weken|weekly|deze week|vorige week|afgelopen 7|7 dagen)\b/.test(v)) return "week";
-  return "maand";
-}
-
 export default function ChatPage() {
   return (
     <AuthGuard>
@@ -136,34 +175,25 @@ function ChatContent({ userName }: { userName: string }) {
   const [limitReached, setLimitReached] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const [clientName, setClientName] = useState("");
-  // De grafiek tekent uit dezelfde reeks die de chat als tekst krijgt. Een keer
-  // ophalen is genoeg: het zijn maandtotalen, die veranderen niet per vraag.
-  const [months, setMonths] = useState<MonthPoint[]>([]);
-  const [weeks, setWeeks] = useState<MonthPoint[]>([]);
-  // Zelfde bron als de grafiek: tot welke dag er gemeten is en wat het platform
-  // meetelt. Gaat mee in de PDF, zodat die weken later nog zegt waarop hij rust.
-  const [lastDataDate, setLastDataDate] = useState<string | null>(null);
-  const [telling, setTelling] = useState<Telling | null>(null);
+  // W-124: geen losse reeks meer in deze component. De grafiek onder een
+  // antwoord komt uit de momentopname van DAT antwoord (msg.snapshot), zodat
+  // tekst en beeld niet uit elkaar kunnen lopen zoals op 13 september 2026.
   // Per antwoord de opgemaakte HTML, zodat de PDF-knop exact exporteert wat de
   // klant ziet in plaats van de markdown opnieuw te renderen.
   const bubbleRefs = useRef<Record<number, HTMLDivElement | null>>({});
+
+  /**
+   * Draait de Hub nog de oude rekenlaag? Een antwoord van de nieuwe context
+   * draagt altijd een momentopname. Zien we assistent-antwoorden zonder, dan
+   * is dat het signaal dat de fix nog niet live is (W-124, 13 september).
+   */
+  const oudeRekenlaag = messages.some((m) => m.role === "assistant" && !m.snapshot);
 
   // De geschiedenis wordt bij het openen een keer opgehaald, dus die effect-hook
   // mag niet op de taal reageren (dat zou een tweede call geven). Via de ref
   // pakt de foutmelding wel de taal die op dat moment bekend is.
   const copyRef = useRef(c);
   copyRef.current = c;
-
-  useEffect(() => {
-    portalFetch<{ months: MonthPoint[]; weeks: MonthPoint[]; lastDataDate?: string | null; telling?: Telling | null }>("/chat/series")
-      .then((d) => {
-        setMonths(d.months || []);
-        setWeeks(d.weeks || []);
-        setLastDataDate(d.lastDataDate ?? null);
-        setTelling(d.telling ?? null);
-      })
-      .catch(() => { /* zonder grafiek blijft de tekst gewoon staan */ });
-  }, []);
 
   useEffect(() => {
     portalFetch<{ client?: { name?: string } | null }>("/me")
@@ -192,11 +222,11 @@ function ChatContent({ userName }: { userName: string }) {
     setSending(true);
 
     try {
-      const data = await portalFetch<{ response: string; usage?: TokenUsage }>("/chat", {
+      const data = await portalFetch<{ response: string; usage?: TokenUsage; snapshot?: AntwoordSnapshot | null }>("/chat", {
         method: "POST",
         body: JSON.stringify({ message: text }),
       });
-      setMessages((prev) => [...prev, { role: "assistant", content: data.response }]);
+      setMessages((prev) => [...prev, { role: "assistant", content: data.response, snapshot: data.snapshot ?? null }]);
       if (data.usage) setUsage(data.usage);
     } catch (err: any) {
       // Op de code testen, niet op de tekst: die wordt vertaald zodra de klant
@@ -234,11 +264,11 @@ function ChatContent({ userName }: { userName: string }) {
 
     setSending(true);
     try {
-      const data = await portalFetch<{ response: string; usage?: TokenUsage }>("/chat", {
+      const data = await portalFetch<{ response: string; usage?: TokenUsage; snapshot?: AntwoordSnapshot | null }>("/chat", {
         method: "POST",
         body: JSON.stringify({ message: vraag.content, regenerate: true }),
       });
-      setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, content: data.response } : m)));
+      setMessages((prev) => prev.map((m, i) => (i === index ? { ...m, content: data.response, snapshot: data.snapshot ?? null } : m)));
       if (data.usage) setUsage(data.usage);
     } catch (err: any) {
       toast.error(err.message || c.genericError);
@@ -271,6 +301,8 @@ function ChatContent({ userName }: { userName: string }) {
           <p className="text-muted-foreground text-sm mt-1">{c.aiNotice}</p>
         </div>
       </div>
+
+      {oudeRekenlaag && <ChatBetrouwbaarheidsWaarschuwing lang={lang} />}
 
       {/* Fair Use warning, only at 90%+ */}
       {fairUseWarning && (
@@ -339,13 +371,23 @@ function ChatContent({ userName }: { userName: string }) {
                   >
                     {msg.content}
                   </ReactMarkdown>
-                  {i === messages.length - 1 && months.length > 0 && gaatOverCijfers(msg.content) && (
+                  {/* W-124: de grafiek hoort bij DIT antwoord en komt uit zijn
+                      eigen momentopname. Geen momentopname betekent geen beeld,
+                      ook niet onder het laatste antwoord. */}
+                  {msg.snapshot && gaatOverCijfers(msg.content) && (
                     <MetricsChart
-                      months={months}
-                      weeks={weeks}
+                      months={msg.snapshot.grafiek.maanden}
+                      weeks={msg.snapshot.grafiek.weken}
                       lang={lang}
-                      telling={telling}
-                      eenheid={vraagEenheid([...messages.slice(0, i)].reverse().find((m) => m.role === "user")?.content)}
+                      eenheid={msg.snapshot.grafiek.eenheid}
+                      telling={{
+                        zachtPerPlatform: Object.fromEntries(
+                          msg.snapshot.gebeurtenisdefinities
+                            .filter((g) => g.zachtPerType && g.zachtPerType.length > 0)
+                            .map((g) => [g.platform, (g.zachtPerType || []).map((t) => t.actionType)]),
+                        ),
+                        bevatZacht: msg.snapshot.gebeurtenisdefinities.some((g) => (g.zachtPerType || []).length > 0),
+                      }}
                     />
                   )}
                   </>
@@ -361,8 +403,7 @@ function ChatContent({ userName }: { userName: string }) {
                 getRenderedHtml={() => bubbleRefs.current[i]?.innerHTML || null}
                 clientName={clientName}
                 lang={lang}
-                lastDataDate={lastDataDate}
-                telling={telling}
+                snapshot={msg.snapshot ?? null}
                 onRegenerate={i === messages.length - 1 ? () => handleRegenerate(i) : null}
                 busy={sending}
               />
