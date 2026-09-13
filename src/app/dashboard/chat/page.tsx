@@ -8,7 +8,7 @@ import { toast } from "sonner";
 import { Send, Bot, User, AlertTriangle } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import ChatMessageActions from "@/components/ChatMessageActions";
-import MetricsChart, { type MonthPoint } from "@/components/MetricsChart";
+import MetricsChart, { type MonthPoint, type Telling } from "@/components/MetricsChart";
 
 interface Message {
   id?: string;
@@ -140,6 +140,10 @@ function ChatContent({ userName }: { userName: string }) {
   // ophalen is genoeg: het zijn maandtotalen, die veranderen niet per vraag.
   const [months, setMonths] = useState<MonthPoint[]>([]);
   const [weeks, setWeeks] = useState<MonthPoint[]>([]);
+  // Zelfde bron als de grafiek: tot welke dag er gemeten is en wat het platform
+  // meetelt. Gaat mee in de PDF, zodat die weken later nog zegt waarop hij rust.
+  const [lastDataDate, setLastDataDate] = useState<string | null>(null);
+  const [telling, setTelling] = useState<Telling | null>(null);
   // Per antwoord de opgemaakte HTML, zodat de PDF-knop exact exporteert wat de
   // klant ziet in plaats van de markdown opnieuw te renderen.
   const bubbleRefs = useRef<Record<number, HTMLDivElement | null>>({});
@@ -151,8 +155,13 @@ function ChatContent({ userName }: { userName: string }) {
   copyRef.current = c;
 
   useEffect(() => {
-    portalFetch<{ months: MonthPoint[]; weeks: MonthPoint[] }>("/chat/series")
-      .then((d) => { setMonths(d.months || []); setWeeks(d.weeks || []); })
+    portalFetch<{ months: MonthPoint[]; weeks: MonthPoint[]; lastDataDate?: string | null; telling?: Telling | null }>("/chat/series")
+      .then((d) => {
+        setMonths(d.months || []);
+        setWeeks(d.weeks || []);
+        setLastDataDate(d.lastDataDate ?? null);
+        setTelling(d.telling ?? null);
+      })
       .catch(() => { /* zonder grafiek blijft de tekst gewoon staan */ });
   }, []);
 
@@ -335,6 +344,7 @@ function ChatContent({ userName }: { userName: string }) {
                       months={months}
                       weeks={weeks}
                       lang={lang}
+                      telling={telling}
                       eenheid={vraagEenheid([...messages.slice(0, i)].reverse().find((m) => m.role === "user")?.content)}
                     />
                   )}
@@ -351,6 +361,8 @@ function ChatContent({ userName }: { userName: string }) {
                 getRenderedHtml={() => bubbleRefs.current[i]?.innerHTML || null}
                 clientName={clientName}
                 lang={lang}
+                lastDataDate={lastDataDate}
+                telling={telling}
                 onRegenerate={i === messages.length - 1 ? () => handleRegenerate(i) : null}
                 busy={sending}
               />

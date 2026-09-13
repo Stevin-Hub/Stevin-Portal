@@ -71,6 +71,8 @@ export type PortalErrorCode =
   | "notifications_load_failed"
   | "one_click_scope_denied"
   | "impersonation_read_only"
+  | "legal_accept_failed"
+  | "legal_status_failed"
   | "oauth_not_configured"
   | "oauth_start_failed"
   | "owner_only_confirm"
@@ -365,6 +367,14 @@ const ERROR_COPY: Record<PortalErrorCode, { nl: string; en: string }> = {
   impersonation_read_only: {
     nl: "Meekijken is alleen lezen. Deze actie kan niet vanuit een meekijksessie.",
     en: "Viewing as the client is read-only. This action is not available from a view-as session.",
+  },
+  legal_accept_failed: {
+    nl: "Je akkoord kon nu niet worden vastgelegd. Probeer het zo opnieuw.",
+    en: "Your acceptance could not be recorded just now. Please try again shortly.",
+  },
+  legal_status_failed: {
+    nl: "We konden nu niet zien of je akkoord al is vastgelegd. Probeer het zo opnieuw.",
+    en: "We could not check whether your acceptance is recorded. Please try again shortly.",
   },
 };
 

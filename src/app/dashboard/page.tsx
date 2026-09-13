@@ -9,7 +9,7 @@ import { getClient } from "@/lib/auth";
 import { useLanguage, useLanguageReady, localeFor, type Lang } from "@/lib/useLanguage";
 import { toast } from "sonner";
 
-interface DashboardData {
+export interface DashboardData {
   kpis: {
     impressions: number;
     clicks: number;
@@ -29,7 +29,9 @@ interface DashboardData {
     ctr: string;
     cpc: string;
     /** Zachte gebeurtenissen (paginabezoek, klik) die in conversions meetellen. null = samenstelling onbekend. */
-    zachteGebeurtenissen?: number | null;
+    zachteGebeurtenissen: number | null;
+    /** Per exacte gebeurtenisnaam, zodat het scherm alleen "paginabezoeken" schrijft als dat de naam is. */
+    zachtPerType: Array<{ actionType: string; aantal: number }> | null;
   }>;
   /**
    * W-124 fase 1: de procentuele verandering komt uit de Hub (period.ts), die
@@ -47,9 +49,11 @@ interface DashboardData {
     dagenAchter: number;
     laatsteDatum: string | null;
   } | null;
+  /** Laatste dag waarvoor er ooit data is; null als er nog nooit iets gemeten is. */
+  dataTot: string | null;
   pendingApprovals: number;
   pendingBudgets: number;
-  period: { days: number; since: string; tot?: string; truncated?: boolean };
+  period: { days: number; since: string; tot: string; truncated: boolean };
   message?: string;
   /** Machineleesbare reden bij een lege staat, zodat het portaal zelf de taal kiest. */
   reason?: "no_campaigns_linked" | "no_data_yet" | "creator_only";
@@ -112,8 +116,14 @@ interface Copy {
   coverageStale: (datum: string) => string;
   coveragePlatformMissing: string;
   coveragePreviousIncomplete: string;
-  softEventsNote: (n: number) => string;
-  softEventsRow: (n: number) => string;
+  /** "waarvan 1.196 paginabezoeken, geen opdrachtmeting" (KPI-kaart). */
+  softEventsNote: (beschrijving: string) => string;
+  /** "Meta registreerde 1.341 resultaten. Daarvan waren 1.196 paginabezoeken. Dat is geen opdrachtmeting." */
+  softEventsRow: (label: string, totaal: string, beschrijving: string) => string;
+  /** Namen van gebeurtenistypen zoals de klant ze leest. Onbekend blijft de platformnaam. */
+  eventNames: Record<string, string>;
+  and: string;
+  softEventsUnknownContract: string;
   contextLabel: string;
   mostResults: string;
   mostSpend: string;
@@ -196,8 +206,20 @@ const COPY: Record<Lang, Copy> = {
     coverageStale: (datum) => `De laatste meting is van ${datum}.`,
     coveragePlatformMissing: "Van een gekoppeld kanaal kwam in deze periode geen data binnen.",
     coveragePreviousIncomplete: "De periode ervoor is niet volledig gemeten, dus er is geen eerlijke vergelijking.",
-    softEventsNote: (n) => `waarvan ${n.toLocaleString("nl-NL")} paginabezoeken of klikken, geen aanvragen`,
-    softEventsRow: (n) => `${n.toLocaleString("nl-NL")} hiervan zijn paginabezoeken of klikken`,
+    softEventsNote: (beschrijving) => `waarvan ${beschrijving}, geen opdrachtmeting`,
+    softEventsRow: (label, totaal, beschrijving) => `${label} registreerde ${totaal} resultaten. Daarvan waren ${beschrijving}. Dat is geen opdrachtmeting.`,
+    eventNames: {
+      landing_page_view: "paginabezoeken",
+      page_view: "paginaweergaven",
+      link_click: "klikken",
+      outbound_click: "klikken naar buiten",
+      view_content: "bekeken pagina's",
+      post_engagement: "interacties met een bericht",
+      page_engagement: "interacties met de pagina",
+      video_view: "videoweergaven",
+    },
+    and: "en",
+    softEventsUnknownContract: "Dit scherm kreeg een antwoord in een vorm die het niet kent. Probeer het zo opnieuw; blijft het staan, laat het ons weten via Contact.",
     contextLabel: "Context",
     mostResults: "Meeste resultaat:",
     mostSpend: "Meeste investering:",
@@ -273,8 +295,20 @@ const COPY: Record<Lang, Copy> = {
     coverageStale: (datum) => `The latest measurement is from ${datum}.`,
     coveragePlatformMissing: "A connected channel delivered no data in this period.",
     coveragePreviousIncomplete: "The period before was not fully measured, so there is no fair comparison.",
-    softEventsNote: (n) => `of which ${n.toLocaleString("en-GB")} are page views or clicks, not enquiries`,
-    softEventsRow: (n) => `${n.toLocaleString("en-GB")} of these are page views or clicks`,
+    softEventsNote: (beschrijving) => `of which ${beschrijving}, not a measure of orders`,
+    softEventsRow: (label, totaal, beschrijving) => `${label} recorded ${totaal} results. Of those, ${beschrijving}. That is not a measure of orders.`,
+    eventNames: {
+      landing_page_view: "page views",
+      page_view: "page views",
+      link_click: "clicks",
+      outbound_click: "outbound clicks",
+      view_content: "content views",
+      post_engagement: "post interactions",
+      page_engagement: "page interactions",
+      video_view: "video views",
+    },
+    and: "and",
+    softEventsUnknownContract: "This screen received an answer in a shape it does not know. Please try again shortly; if it persists, let us know through Contact.",
     contextLabel: "Context",
     mostResults: "Most results:",
     mostSpend: "Most investment:",
@@ -337,6 +371,18 @@ function fmtEur(n: number, locale: string): string {
     currency: "EUR",
     maximumFractionDigits: 0,
   }).format(n);
+}
+
+/**
+ * "1.196 paginabezoeken" of "1.180 paginabezoeken en 16 klikken": per exacte
+ * gebeurtenisnaam, nooit een verzamelwoord dat ruimte laat (Astra, 13 sep).
+ */
+function beschrijfZacht(perType: Array<{ actionType: string; aantal: number }>, c: Copy, locale: string): string {
+  const delen = perType
+    .filter((t) => t.aantal > 0)
+    .map((t) => `${t.aantal.toLocaleString(locale)} ${c.eventNames[t.actionType] ?? t.actionType}`);
+  if (delen.length <= 1) return delen[0] ?? "";
+  return `${delen.slice(0, -1).join(", ")} ${c.and} ${delen[delen.length - 1]}`;
 }
 
 function pct(delta: number): string {
@@ -479,6 +525,16 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
       portalFetch<{ reports: Report[] }>("/reports").catch(() => ({ reports: [] })),
     ])
       .then(([dashboard, reportData]) => {
+        // Contractbewaking (W-124, 13 sep): de Hub stuurde een keer een andere
+        // vorm dan deze pagina verwachtte, en TypeScript kon dat niet zien.
+        // Een antwoord met cijfers maar zonder de velden van dit contract is
+        // een storing, geen pagina die het zelf maar moet uitzoeken.
+        if (dashboard?.kpis && (dashboard.verschil === undefined || dashboard.kwaliteit === undefined || !Array.isArray(dashboard.channels))) {
+          console.error("[portal] dashboardcontract klopt niet: ontbrekende velden", Object.keys(dashboard));
+          setLoadFailed(true);
+          toast.error(c.softEventsUnknownContract);
+          return;
+        }
         setData(dashboard);
         setReports(reportData.reports);
       })
@@ -509,6 +565,11 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
     const topChannel = [...data.channels].sort((a, b) => b.conversions - a.conversions)[0];
     const spendChannel = [...data.channels].sort((a, b) => b.cost - a.cost)[0];
     const zachtTotaal = data.channels.reduce((sum, ch) => sum + (ch.zachteGebeurtenissen ?? 0), 0);
+    const zachtPerTypeTotaal = new Map<string, number>();
+    for (const ch of data.channels) {
+      for (const t of ch.zachtPerType ?? []) zachtPerTypeTotaal.set(t.actionType, (zachtPerTypeTotaal.get(t.actionType) ?? 0) + t.aantal);
+    }
+    const zachtBeschrijving = [...zachtPerTypeTotaal.entries()].map(([actionType, aantal]) => ({ actionType, aantal }));
 
     return {
       kpis,
@@ -520,6 +581,7 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
       spendChannel,
       vergelijkingMag: mag,
       zachtTotaal,
+      zachtBeschrijving,
     };
   }, [data]);
 
@@ -622,7 +684,11 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
         <KpiCard
           label={c.kpiResults}
           value={fmtNum(kpis.conversions, locale)}
-          context={surface.zachtTotaal > 0 ? `${c.kpiResultsContext(kpis.cpa)}, ${c.softEventsNote(surface.zachtTotaal)}` : c.kpiResultsContext(kpis.cpa)}
+          context={
+            surface.zachtTotaal > 0
+              ? `${c.kpiResultsContext(kpis.cpa)}, ${c.softEventsNote(beschrijfZacht(surface.zachtBeschrijving, c, locale))}`
+              : c.kpiResultsContext(kpis.cpa)
+          }
         />
       </section>
 
@@ -731,9 +797,9 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
                     <tr key={ch.source} className="border-b border-border-subtle last:border-0">
                       <td className="py-2.5 pr-4 font-semibold text-foreground">
                         {ch.label}
-                        {typeof ch.zachteGebeurtenissen === "number" && ch.zachteGebeurtenissen > 0 && (
+                        {typeof ch.zachteGebeurtenissen === "number" && ch.zachteGebeurtenissen > 0 && ch.zachtPerType && (
                           <span className="mt-0.5 block text-[12px] font-normal text-muted-foreground">
-                            {c.softEventsRow(ch.zachteGebeurtenissen)}
+                            {c.softEventsRow(ch.label, ch.conversions.toLocaleString(locale), beschrijfZacht(ch.zachtPerType, c, locale))}
                           </span>
                         )}
                       </td>
