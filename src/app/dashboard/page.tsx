@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import AuthGuard from "@/components/AuthGuard";
 import { portalFetch } from "@/lib/api";
 import { getClient } from "@/lib/auth";
+import { fmtDatum, fmtPeriode } from "@/lib/datum";
 import { useLanguage, useLanguageReady, localeFor, type Lang } from "@/lib/useLanguage";
 import { toast } from "sonner";
 
@@ -209,11 +210,11 @@ const COPY: Record<Lang, Copy> = {
     budgetsWhy: "Er ligt een voorstel klaar om budget te verschuiven op basis van de afgelopen periode.",
     view: "Bekijken",
     changeTitle: "Wat veranderde er deze periode?",
-    changeIntro: (dagen, van, tot) => `Vergeleken met de ${dagen} dagen ervoor (${van} t/m ${tot}).`,
-    periodLine: (van, tot) => `Cijfers van ${van} t/m ${tot}.`,
+    changeIntro: (dagen, van, tot) => `Vergeleken met de ${dagen} dagen ervoor (${fmtPeriode(van, tot, "nl")}).`,
+    periodLine: (van, tot) => `Cijfers van ${fmtPeriode(van, tot, "nl")}.`,
     changeNoCompare: "Geen vergelijking: de gegevens over deze periode zijn niet volledig. Je ziet de totalen van de dagen die wel gemeten zijn.",
     coverageMissingDays: (n) => `${n} ${n === 1 ? "dag" : "dagen"} in deze periode zonder gegevens.`,
-    coverageStale: (datum) => `De laatste meting is van ${datum}.`,
+    coverageStale: (datum) => `De laatste meting is van ${fmtDatum(datum, "nl")}.`,
     coveragePlatformMissing: "Van een gekoppeld kanaal kwam in deze periode geen data binnen.",
     coveragePreviousIncomplete: "De periode ervoor is niet volledig gemeten, dus er is geen eerlijke vergelijking.",
     staleData: (dagen, datum) => `Let op: de laatste meting is van ${datum}, ${dagen} dagen geleden. Je kijkt naar cijfers tot die dag, niet tot vandaag.`,
@@ -300,11 +301,11 @@ const COPY: Record<Lang, Copy> = {
     budgetsWhy: "There is a proposal ready to shift budget, based on the period behind us.",
     view: "View",
     changeTitle: "What changed this period?",
-    changeIntro: (dagen, van, tot) => `Compared with the ${dagen} days before (${van} to ${tot}).`,
-    periodLine: (van, tot) => `Figures from ${van} to ${tot}.`,
+    changeIntro: (dagen, van, tot) => `Compared with the ${dagen} days before (${fmtPeriode(van, tot, "en")}).`,
+    periodLine: (van, tot) => `Figures from ${fmtPeriode(van, tot, "en")}.`,
     changeNoCompare: "No comparison: the data for this period is not complete. You see the totals of the days that were measured.",
     coverageMissingDays: (n) => `${n} ${n === 1 ? "day" : "days"} in this period without data.`,
-    coverageStale: (datum) => `The latest measurement is from ${datum}.`,
+    coverageStale: (datum) => `The latest measurement is from ${fmtDatum(datum, "en")}.`,
     coveragePlatformMissing: "A connected channel delivered no data in this period.",
     coveragePreviousIncomplete: "The period before was not fully measured, so there is no fair comparison.",
     staleData: (dagen, datum) => `Note: the latest measurement is from ${datum}, ${dagen} days ago. You are looking at figures up to that day, not up to today.`,
