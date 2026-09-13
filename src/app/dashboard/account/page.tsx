@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { portalFetch } from "@/lib/api";
+import { clarityProjectId, startClarity, grantClarityConsent, withdrawClarityConsent } from "@/lib/clarity";
 import AuthGuard from "@/components/AuthGuard";
 import { toast } from "sonner";
-import { User, Package, MessageCircle, ShieldCheck, Mail, Crown, Users, GraduationCap, Lightbulb, Search, Shield, UserCheck } from "lucide-react";
+import { User, Package, MessageCircle, ShieldCheck, Mail, Crown, Users, GraduationCap, Lightbulb, Search, Shield, UserCheck, Activity } from "lucide-react";
 import { useLanguage, useLanguageReady, localeFor, type Lang } from "@/lib/useLanguage";
 
 interface AccountData {
@@ -55,6 +56,14 @@ interface AccountCopy {
   questionsTitle: string;
   questionsCaption: string;
   termsTitle: string;
+  metingTitle: string;
+  metingAan: string;
+  metingUit: string;
+  metingUitleg: string;
+  metingGeef: string;
+  metingTrekIn: string;
+  metingLegacy: string;
+  metingFout: string;
   termsAccepted: string;
   termsPending: string;
   explainerTitle: string;
@@ -86,6 +95,14 @@ const COPY: Record<Lang, AccountCopy> = {
     questionsTitle: "Vragen deze maand",
     questionsCaption: "vragen via Stevin",
     termsTitle: "Voorwaarden",
+    metingTitle: "Gebruiksmeting",
+    metingAan: "Aan: je gebruik van dit portaal wordt gemeten met Microsoft Clarity, met alle tekst en cijfers gemaskeerd.",
+    metingUit: "Uit: je gebruik wordt niet gemeten.",
+    metingUitleg: "Vrijwillig en los van de afspraken. Wij zien klikpaden en waar iets vastloopt, nooit inhoud.",
+    metingGeef: "Toestemming geven",
+    metingTrekIn: "Toestemming intrekken",
+    metingLegacy: "Log opnieuw in via je inloglink om dit te wijzigen.",
+    metingFout: "Wijzigen lukte niet. Er is niets veranderd. Probeer het opnieuw.",
     termsAccepted: "Gebruiksvoorwaarden geaccepteerd",
     termsPending: "Gebruiksvoorwaarden nog niet geaccepteerd",
     explainerTitle: "Wat doet Stevin hier?",
@@ -119,6 +136,14 @@ const COPY: Record<Lang, AccountCopy> = {
     questionsTitle: "Questions this month",
     questionsCaption: "questions via Stevin",
     termsTitle: "Terms",
+    metingTitle: "Usage measurement",
+    metingAan: "On: your use of this portal is measured with Microsoft Clarity, with all text and figures masked.",
+    metingUit: "Off: your use is not measured.",
+    metingUitleg: "Voluntary and separate from the agreements. We see click paths and where something gets stuck, never content.",
+    metingGeef: "Give consent",
+    metingTrekIn: "Withdraw consent",
+    metingLegacy: "Sign in again via your login link to change this.",
+    metingFout: "The change did not go through. Nothing was changed. Please try again.",
     termsAccepted: "Terms of use accepted",
     termsPending: "Terms of use not accepted yet",
     explainerTitle: "What does Stevin do here?",
@@ -156,11 +181,41 @@ export default function AccountPage() {
 function AccountContent() {
   const [data, setData] = useState<AccountData | null>(null);
   const [loading, setLoading] = useState(true);
+  // W-128: stand van de vrijwillige toestemming voor gebruiksmeting, uit het
+  // register (/terms/status). null = nog niet geladen of niet leesbaar.
+  const [meting, setMeting] = useState<{ consent: boolean; canSign: boolean } | null>(null);
+  const [metingBezig, setMetingBezig] = useState(false);
+  const [metingFout, setMetingFout] = useState(false);
+
+  async function wisselMeting() {
+    if (!meting || metingBezig) return;
+    setMetingBezig(true);
+    setMetingFout(false);
+    try {
+      if (meting.consent) {
+        await portalFetch("/legal/withdraw", { method: "POST", body: JSON.stringify({ document_type: "analytics_consent" }) });
+        withdrawClarityConsent();
+        setMeting({ ...meting, consent: false });
+      } else {
+        await portalFetch("/legal/accept", { method: "POST", body: JSON.stringify({ document_type: "analytics_consent" }) });
+        const id = clarityProjectId();
+        if (id && startClarity(id)) grantClarityConsent();
+        setMeting({ ...meting, consent: true });
+      }
+    } catch {
+      setMetingFout(true);
+    } finally {
+      setMetingBezig(false);
+    }
+  }
   const lang = useLanguage();
   const langReady = useLanguageReady();
   const c = COPY[lang];
 
   useEffect(() => {
+    portalFetch<{ analyticsConsent?: boolean; canSign?: boolean }>("/terms/status")
+      .then((t) => setMeting({ consent: !!t.analyticsConsent, canSign: t.canSign !== false }))
+      .catch(() => setMeting(null));
     portalFetch<AccountData>("/account")
       .then(setData)
       .catch((err) => toast.error(err.message))
@@ -299,6 +354,36 @@ function AccountContent() {
               {data.termsAccepted ? c.termsAccepted : c.termsPending}
             </p>
           </div>
+        </div>
+
+        {/* Gebruiksmeting (W-128): vrijwillig, apart in het register, altijd intrekbaar */}
+        <div className="rounded-[28px] border border-border bg-card p-7 shadow-[0_18px_45px_rgba(31,41,51,0.045)]">
+          <div className="flex items-center gap-3 mb-4">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-accent-light">
+              <Activity className="w-5 h-5 text-accent" />
+            </div>
+            <h3 className="text-xl font-black tracking-[-0.035em]">{c.metingTitle}</h3>
+          </div>
+          {meting && (
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${meting.consent ? "bg-success" : "bg-border"}`} />
+              <p className="text-sm">{meting.consent ? c.metingAan : c.metingUit}</p>
+            </div>
+          )}
+          <p className="mt-2 text-xs text-muted-foreground">{c.metingUitleg}</p>
+          {meting && (meting.canSign ? (
+            <button
+              type="button"
+              onClick={wisselMeting}
+              disabled={metingBezig}
+              className="mt-4 rounded-xl border border-border px-4 py-2 text-sm font-medium hover:bg-page disabled:opacity-50"
+            >
+              {meting.consent ? c.metingTrekIn : c.metingGeef}
+            </button>
+          ) : (
+            <p className="mt-3 text-xs text-muted-foreground">{c.metingLegacy}</p>
+          ))}
+          {metingFout && <p className="mt-2 text-sm text-danger">{c.metingFout}</p>}
         </div>
       </div>
 

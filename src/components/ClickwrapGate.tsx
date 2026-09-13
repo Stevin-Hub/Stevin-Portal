@@ -25,11 +25,13 @@ interface LegalDoc {
   description: string;
   url: string;
   version: string;
+  /** false = vrijwillig (W-128: gebruiksmeting). Ontbreekt het veld, dan verplicht. */
+  is_required?: boolean;
 }
 
 interface Props {
   canSign: boolean;
-  onAccepted: () => void;
+  onAccepted: (uitkomst: { analyticsConsent: boolean }) => void;
 }
 
 // Terugval als de lijst niet laadt. Bron van waarheid blijft /legal/documents;
@@ -52,6 +54,7 @@ const LABEL_EN: Record<string, string> = {
 const COPY: Record<Lang, {
   title: string; subtitle: string; agree: string; and: string; go: string; busy: string;
   fail: string; retry: string; legacyTitle: string; legacyBody: string; relogin: string; signedAs: string;
+  meting: string; metingLink: string; metingNa: string;
 }> = {
   nl: {
     title: "Nog een laatste stap",
@@ -66,6 +69,9 @@ const COPY: Record<Lang, {
     legacyBody: "Je bent ingelogd met een oudere inlogmethode. Om de afspraken vast te leggen op je eigen account, log je eenmalig opnieuw in via je inloglink of met Google.",
     relogin: "Opnieuw inloggen",
     signedAs: "Ingelogd als",
+    meting: "Ik geef toestemming om mijn gebruik van dit portaal te meten met Microsoft Clarity, met alle tekst en cijfers gemaskeerd. Dit is vrijwillig en staat los van de afspraken hierboven; intrekken kan altijd bij Account. Zie de",
+    metingLink: "privacyverklaring",
+    metingNa: ".",
   },
   en: {
     title: "One last step",
@@ -80,6 +86,9 @@ const COPY: Record<Lang, {
     legacyBody: "You are signed in with an older method. To record the agreements on your own account, sign in once more via your login link or with Google.",
     relogin: "Sign in again",
     signedAs: "Signed in as",
+    meting: "I allow my use of this portal to be measured with Microsoft Clarity, with all text and figures masked. This is voluntary and separate from the agreements above; you can withdraw it at any time under Account. See the",
+    metingLink: "privacy policy",
+    metingNa: ".",
   },
 };
 
@@ -88,6 +97,9 @@ export default function ClickwrapGate({ canSign, onAccepted }: Props) {
   const c = COPY[lang];
   const [documents, setDocuments] = useState<LegalDoc[]>(FALLBACK_DOCS);
   const [checked, setChecked] = useState(false);
+  // Vrijwillig en standaard UIT (W-128): toestemming voor opnames moet los van
+  // de voorwaarden staan om als vrij gegeven te gelden.
+  const [metingChecked, setMetingChecked] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [email, setEmail] = useState<string | null>(null);
@@ -109,13 +121,23 @@ export default function ClickwrapGate({ canSign, onAccepted }: Props) {
       // Een POST per document; de Hub bepaalt zelf de geldende versie en maakt
       // per document een bewijsopname. Faalt er een, dan stoppen we en is er
       // voor dat document niets opgeslagen.
-      for (const doc of documents) {
+      for (const doc of verplicht) {
         await portalFetch("/legal/accept", {
           method: "POST",
           body: JSON.stringify({ document_type: doc.key }),
         });
       }
-      onAccepted();
+      // De vrijwillige toestemming alleen als het vinkje aan staat; zonder
+      // vinkje komt er geen rij en dus geen meting.
+      if (metingChecked) {
+        for (const doc of vrijwillig) {
+          await portalFetch("/legal/accept", {
+            method: "POST",
+            body: JSON.stringify({ document_type: doc.key }),
+          });
+        }
+      }
+      onAccepted({ analyticsConsent: metingChecked && vrijwillig.length > 0 });
     } catch {
       setError(c.fail);
       setSubmitting(false);
@@ -128,6 +150,9 @@ export default function ClickwrapGate({ canSign, onAccepted }: Props) {
   }
 
   const label = (d: LegalDoc) => (lang === "en" ? LABEL_EN[d.key] ?? d.label : d.label);
+  const verplicht = documents.filter((d) => d.is_required !== false);
+  const vrijwillig = documents.filter((d) => d.is_required === false);
+  const privacyUrl = documents.find((d) => d.key === "privacy_policy")?.url ?? "https://stevin.ai/privacy";
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background px-4">
@@ -168,10 +193,10 @@ export default function ClickwrapGate({ canSign, onAccepted }: Props) {
               </div>
               <span className="text-sm text-foreground">
                 {c.agree}{" "}
-                {documents.map((doc, i) => (
+                {verplicht.map((doc, i) => (
                   <span key={doc.key}>
-                    {i > 0 && i < documents.length - 1 && ", "}
-                    {i === documents.length - 1 && ` ${c.and} `}
+                    {i > 0 && i < verplicht.length - 1 && ", "}
+                    {i === verplicht.length - 1 && ` ${c.and} `}
                     <a
                       href={doc.url}
                       target="_blank"
@@ -185,6 +210,34 @@ export default function ClickwrapGate({ canSign, onAccepted }: Props) {
                 ))}
               </span>
             </div>
+
+            {vrijwillig.length > 0 && (
+              <div
+                role="checkbox"
+                aria-checked={metingChecked}
+                tabIndex={0}
+                onClick={() => setMetingChecked((v) => !v)}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Enter") { e.preventDefault(); setMetingChecked((v) => !v); }
+                }}
+                className={`mt-3 flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors ${
+                  metingChecked ? "border-accent/40 bg-accent/5" : "border-border hover:border-accent/20"
+                }`}
+              >
+                <div className="pt-0.5">
+                  <div className={`flex h-4 w-4 items-center justify-center rounded border ${metingChecked ? "border-accent bg-accent text-white" : "border-border"}`}>
+                    {metingChecked && <CheckCircle2 className="h-3 w-3" />}
+                  </div>
+                </div>
+                <span className="text-sm text-muted-foreground">
+                  {c.meting}{" "}
+                  <a href={privacyUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline" onClick={(e) => e.stopPropagation()}>
+                    {c.metingLink}
+                  </a>
+                  {c.metingNa}
+                </span>
+              </div>
+            )}
 
             {error && <p className="mt-3 text-sm text-danger">{error}</p>}
 
