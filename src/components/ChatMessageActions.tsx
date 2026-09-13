@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Copy, Share2, RefreshCw, FileDown, Check } from "lucide-react";
 import { toast } from "sonner";
 import type { Lang } from "@/lib/useLanguage";
+import { fmtPeriode } from "@/lib/datum";
 
 /**
  * De vier acties onder een antwoord van Stevin.
@@ -151,7 +152,7 @@ export default function ChatMessageActions({
       ? `${t.measuredThrough} ${new Date(`${snapshot.laatsteMeetdag}T00:00:00Z`).toLocaleDateString(lang === "en" ? "en-GB" : "nl-NL", { day: "numeric", month: "long", year: "numeric", timeZone: "UTC" })}`
       : t.measuredUnknown;
     const periode = snapshot
-      ? `${t.periodLabel} ${snapshot.periode.dagen30.van} ${t.until} ${snapshot.periode.dagen30.tot}`
+      ? `${t.periodLabel} ${fmtPeriode(snapshot.periode.dagen30.van, snapshot.periode.dagen30.tot, lang)}`
       : null;
     const tellingRegels = (snapshot?.gebeurtenisdefinities ?? [])
       .filter((g) => (g.zachtPerType || []).length > 0)
