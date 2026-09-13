@@ -5,7 +5,7 @@ import { portalFetch } from "@/lib/api";
 import { useLanguage, useLanguageReady, localeFor, type Lang } from "@/lib/useLanguage";
 import AuthGuard from "@/components/AuthGuard";
 import { toast } from "sonner";
-import { Pause, Play, TrendingDown, TrendingUp, Clock, CheckCircle, XCircle, ShieldAlert, AlertTriangle } from "lucide-react";
+import { Pause, Play, TrendingDown, TrendingUp, Clock, CheckCircle, XCircle, ShieldAlert, AlertTriangle, HelpCircle } from "lucide-react";
 
 interface ActionRequest {
   id: string;
@@ -30,6 +30,10 @@ const STATUS_STYLE: Record<string, { color: string; bg: string; icon: any }> = {
   rejected: { color: "text-muted", bg: "bg-card-hover", icon: XCircle },
   blocked: { color: "text-danger", bg: "bg-danger-light", icon: ShieldAlert },
 };
+// W-124 fase 1, bevinding 2A.5: een status die hier niet in staat viel terug
+// op pending_execution, dus "In behandeling", een bekende en geruststellende
+// status die niet klopt. Onbekend krijgt nu een eigen, neutrale weergave.
+const STATUS_STYLE_UNKNOWN = { color: "text-muted-foreground", bg: "bg-card-hover", icon: HelpCircle };
 
 interface Copy {
   title: string;
@@ -55,6 +59,8 @@ interface Copy {
   emptyHint: string;
   unknownCampaign: string;
   unknownPlatform: string;
+  unknownStatus: string;
+  unknownAction: string;
   weekendEscalation: string;
   blockedFallback: string;
 }
@@ -96,6 +102,8 @@ const COPY: Record<Lang, Copy> = {
     emptyHint: "Hier verschijnen je verzoeken voor campagnewijzigingen",
     unknownCampaign: "Onbekend",
     unknownPlatform: "onbekend",
+    unknownStatus: "Status onbekend",
+    unknownAction: "Onbekende actie",
     weekendEscalation: "Weekend-escalatie",
     blockedFallback: "Verzoek geblokkeerd",
   },
@@ -135,6 +143,8 @@ const COPY: Record<Lang, Copy> = {
     emptyHint: "Your requests for campaign changes appear here",
     unknownCampaign: "Unknown",
     unknownPlatform: "unknown",
+    unknownStatus: "Status unknown",
+    unknownAction: "Unknown action",
     weekendEscalation: "Weekend escalation",
     blockedFallback: "Request blocked",
   },
@@ -415,8 +425,8 @@ function CampaignsContent({ userRole }: { userRole: string }) {
       ) : (
         <div className="space-y-3">
           {requests.map((r) => {
-            const sc = STATUS_STYLE[r.status] || STATUS_STYLE.pending_execution;
-            const statusLabel = c.statusLabels[r.status] || c.statusLabels.pending_execution;
+            const sc = STATUS_STYLE[r.status] || STATUS_STYLE_UNKNOWN;
+            const statusLabel = c.statusLabels[r.status] || c.unknownStatus;
             const StatusIcon = sc.icon;
             const isBudget = r.action_type === "budget_decrease" || r.action_type === "budget_increase";
 
@@ -428,7 +438,10 @@ function CampaignsContent({ userRole }: { userRole: string }) {
                       <StatusIcon className={`w-4 h-4 ${sc.color}`} />
                     </div>
                     <div>
-                      <p className="font-medium text-sm">{c.actionLabels[r.action_type] || r.action_type}</p>
+                      {/* W-124 fase 1, bevinding 2A.5: dit toonde de ruwe interne
+                          code (bijv. "budget_decrease") in plaats van een
+                          Nederlandse of Engelse zin. */}
+                      <p className="font-medium text-sm">{c.actionLabels[r.action_type] || c.unknownAction}</p>
                       <p className="text-xs text-muted-foreground">
                         {r.campaign_name || c.unknownCampaign}, {r.platform || c.unknownPlatform}
                       </p>

@@ -9,7 +9,7 @@ import { getClient } from "@/lib/auth";
 import { useLanguage, useLanguageReady, localeFor, type Lang } from "@/lib/useLanguage";
 import { toast } from "sonner";
 
-interface DashboardData {
+export interface DashboardData {
   kpis: {
     impressions: number;
     clicks: number;
@@ -28,11 +28,38 @@ interface DashboardData {
     conversions: number;
     ctr: string;
     cpc: string;
+    /** Zachte gebeurtenissen (paginabezoek, klik) die in conversions meetellen. null = samenstelling onbekend. */
+    zachteGebeurtenissen: number | null;
+    /** Per exacte gebeurtenisnaam, zodat het scherm alleen "paginabezoeken" schrijft als dat de naam is. */
+    zachtPerType: Array<{ actionType: string; aantal: number }> | null;
   }>;
-  trend: Array<{ date: string; impressions: number; clicks: number; cost: number; conversions: number }>;
+  /**
+   * W-124 fase 1: de procentuele verandering komt uit de Hub (period.ts), die
+   * de gekozen periode vergelijkt met de even lange periode ervoor, op datum.
+   * Het oude veld trend (een op veertien dagen afgekapte dagreeks die hier op
+   * arraypositie in tweeen werd geknipt) bestaat niet meer.
+   */
+  verschil: Record<"spend" | "clicks" | "conversions" | "impressions", { waarde: number; weergave: string } | null> | null;
+  vorigePeriode: { van: string; tot: string; dagen: number; volledig: boolean } | null;
+  /** Dekking van de gekozen periode, D-046: de zin maakt dit scherm zelf, in de taal van de klant. */
+  kwaliteit: {
+    status: "complete" | "warning" | "incomplete";
+    redenen: Array<"PLATFORM_MISSING" | "STALE_DATA" | "MISSING_DAYS" | "SOURCE_MISMATCH" | "NO_DATA">;
+    ontbrekendeDagen: number;
+    dagenAchter: number;
+    laatsteDatum: string | null;
+  } | null;
+  /** Laatste dag waarvoor er ooit data is; null als er nog nooit iets gemeten is. */
+  dataTot: string | null;
+  /**
+   * Dagen tussen vandaag en die laatste meting. Het rollende venster eindigt op
+   * de laatste gemeten dag, dus zonder dit getal zien cijfers van weken geleden
+   * er compleet uit (W-124, 13 september 2026).
+   */
+  dagenSindsLaatsteMeting: number | null;
   pendingApprovals: number;
   pendingBudgets: number;
-  period: { days: number; since: string };
+  period: { days: number; since: string; tot: string; truncated: boolean };
   message?: string;
   /** Machineleesbare reden bij een lege staat, zodat het portaal zelf de taal kiest. */
   reason?: "no_campaigns_linked" | "no_data_yet" | "creator_only";
@@ -89,7 +116,23 @@ interface Copy {
   budgetsWhy: string;
   view: string;
   changeTitle: string;
-  changeIntro: string;
+  changeIntro: (dagen: number, van: string, tot: string) => string;
+  /** De meetperiode van de cijfers zelf, zodat Overzicht, chat, grafiek en PDF dezelfde dagen noemen (W-124). */
+  periodLine: (van: string, tot: string) => string;
+  changeNoCompare: string;
+  coverageMissingDays: (n: number) => string;
+  coverageStale: (datum: string) => string;
+  coveragePlatformMissing: string;
+  coveragePreviousIncomplete: string;
+  staleData: (dagen: number, datum: string) => string;
+  /** "waarvan 1.196 paginabezoeken, geen opdrachtmeting" (KPI-kaart). */
+  softEventsNote: (beschrijving: string) => string;
+  /** "Meta registreerde 1.341 resultaten. Daarvan waren 1.196 paginabezoeken. Dat is geen opdrachtmeting." */
+  softEventsRow: (label: string, totaal: string, beschrijving: string) => string;
+  /** Namen van gebeurtenistypen zoals de klant ze leest. Onbekend blijft de platformnaam. */
+  eventNames: Record<string, string>;
+  and: string;
+  softEventsUnknownContract: string;
   contextLabel: string;
   mostResults: string;
   mostSpend: string;
@@ -105,13 +148,6 @@ interface Copy {
   thClicks: string;
   thResults: string;
   thPerResult: string;
-  alertsTitle: string;
-  alertsIntro: string;
-  askStevin: string;
-  alertTitle: string;
-  alertMeta: (days: number) => string[];
-  alertWhy: string;
-  campaigns: string;
   reportsTitle: string;
   reportsIntro: string;
   /**
@@ -173,7 +209,28 @@ const COPY: Record<Lang, Copy> = {
     budgetsWhy: "Er ligt een voorstel klaar om budget te verschuiven op basis van de afgelopen periode.",
     view: "Bekijken",
     changeTitle: "Wat veranderde er deze periode?",
-    changeIntro: "Tweede helft van de periode vergeleken met de eerste helft.",
+    changeIntro: (dagen, van, tot) => `Vergeleken met de ${dagen} dagen ervoor (${van} t/m ${tot}).`,
+    periodLine: (van, tot) => `Cijfers van ${van} t/m ${tot}.`,
+    changeNoCompare: "Geen vergelijking: de gegevens over deze periode zijn niet volledig. Je ziet de totalen van de dagen die wel gemeten zijn.",
+    coverageMissingDays: (n) => `${n} ${n === 1 ? "dag" : "dagen"} in deze periode zonder gegevens.`,
+    coverageStale: (datum) => `De laatste meting is van ${datum}.`,
+    coveragePlatformMissing: "Van een gekoppeld kanaal kwam in deze periode geen data binnen.",
+    coveragePreviousIncomplete: "De periode ervoor is niet volledig gemeten, dus er is geen eerlijke vergelijking.",
+    staleData: (dagen, datum) => `Let op: de laatste meting is van ${datum}, ${dagen} dagen geleden. Je kijkt naar cijfers tot die dag, niet tot vandaag.`,
+    softEventsNote: (beschrijving) => `waarvan ${beschrijving}, geen opdrachtmeting`,
+    softEventsRow: (label, totaal, beschrijving) => `${label} registreerde ${totaal} resultaten. Daarvan waren ${beschrijving}. Dat is geen opdrachtmeting.`,
+    eventNames: {
+      landing_page_view: "paginabezoeken",
+      page_view: "paginaweergaven",
+      link_click: "klikken",
+      outbound_click: "klikken naar buiten",
+      view_content: "bekeken pagina's",
+      post_engagement: "interacties met een bericht",
+      page_engagement: "interacties met de pagina",
+      video_view: "videoweergaven",
+    },
+    and: "en",
+    softEventsUnknownContract: "Dit scherm kreeg een antwoord in een vorm die het niet kent. Probeer het zo opnieuw; blijft het staan, laat het ons weten via Contact.",
     contextLabel: "Context",
     mostResults: "Meeste resultaat:",
     mostSpend: "Meeste investering:",
@@ -189,14 +246,6 @@ const COPY: Record<Lang, Copy> = {
     thClicks: "Klikken",
     thResults: "Resultaten",
     thPerResult: "Per resultaat",
-    alertsTitle: "Meldingen",
-    alertsIntro: "Wat aandacht vraagt, met genoeg context om te beslissen.",
-    askStevin: "Vraag Stevin om uitleg",
-    alertTitle: "Resultaten bewegen sterker dan investering",
-    alertMeta: (days) => ["Performance", `${days} dagen`, "uitlegbaar"],
-    alertWhy:
-      "De verhouding tussen investering en resultaat is veranderd. Kijk vooral naar kanaalverschuivingen voordat er budget wordt aangepast.",
-    campaigns: "Campagnes",
     reportsTitle: "Rapportages",
     reportsIntro: "De samenvattingen die je normaal in het klantgesprek krijgt.",
     reportsOtherLanguage: null,
@@ -251,7 +300,28 @@ const COPY: Record<Lang, Copy> = {
     budgetsWhy: "There is a proposal ready to shift budget, based on the period behind us.",
     view: "View",
     changeTitle: "What changed this period?",
-    changeIntro: "The second half of the period compared with the first half.",
+    changeIntro: (dagen, van, tot) => `Compared with the ${dagen} days before (${van} to ${tot}).`,
+    periodLine: (van, tot) => `Figures from ${van} to ${tot}.`,
+    changeNoCompare: "No comparison: the data for this period is not complete. You see the totals of the days that were measured.",
+    coverageMissingDays: (n) => `${n} ${n === 1 ? "day" : "days"} in this period without data.`,
+    coverageStale: (datum) => `The latest measurement is from ${datum}.`,
+    coveragePlatformMissing: "A connected channel delivered no data in this period.",
+    coveragePreviousIncomplete: "The period before was not fully measured, so there is no fair comparison.",
+    staleData: (dagen, datum) => `Note: the latest measurement is from ${datum}, ${dagen} days ago. You are looking at figures up to that day, not up to today.`,
+    softEventsNote: (beschrijving) => `of which ${beschrijving}, not a measure of orders`,
+    softEventsRow: (label, totaal, beschrijving) => `${label} recorded ${totaal} results. Of those, ${beschrijving}. That is not a measure of orders.`,
+    eventNames: {
+      landing_page_view: "page views",
+      page_view: "page views",
+      link_click: "clicks",
+      outbound_click: "outbound clicks",
+      view_content: "content views",
+      post_engagement: "post interactions",
+      page_engagement: "page interactions",
+      video_view: "video views",
+    },
+    and: "and",
+    softEventsUnknownContract: "This screen received an answer in a shape it does not know. Please try again shortly; if it persists, let us know through Contact.",
     contextLabel: "Context",
     mostResults: "Most results:",
     mostSpend: "Most investment:",
@@ -267,14 +337,6 @@ const COPY: Record<Lang, Copy> = {
     thClicks: "Clicks",
     thResults: "Results",
     thPerResult: "Per result",
-    alertsTitle: "Alerts",
-    alertsIntro: "What needs attention, with enough context to decide.",
-    askStevin: "Ask Stevin to explain",
-    alertTitle: "Results are moving more than investment",
-    alertMeta: (days) => ["Performance", `${days} days`, "explainable"],
-    alertWhy:
-      "The ratio between investment and result has changed. Look at shifts between channels first, before any budget is adjusted.",
-    campaigns: "Campaigns",
     reportsTitle: "Reports",
     reportsIntro: "The summaries you would normally get in a review meeting.",
     reportsOtherLanguage: "Your consultant writes these reports in Dutch.",
@@ -324,17 +386,20 @@ function fmtEur(n: number, locale: string): string {
   }).format(n);
 }
 
-function pct(delta: number): string {
-  return `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}%`;
+/**
+ * "1.196 paginabezoeken" of "1.180 paginabezoeken en 16 klikken": per exacte
+ * gebeurtenisnaam, nooit een verzamelwoord dat ruimte laat (Astra, 13 sep).
+ */
+function beschrijfZacht(perType: Array<{ actionType: string; aantal: number }>, c: Copy, locale: string): string {
+  const delen = perType
+    .filter((t) => t.aantal > 0)
+    .map((t) => `${t.aantal.toLocaleString(locale)} ${c.eventNames[t.actionType] ?? t.actionType}`);
+  if (delen.length <= 1) return delen[0] ?? "";
+  return `${delen.slice(0, -1).join(", ")} ${c.and} ${delen[delen.length - 1]}`;
 }
 
-function calcTrend(data: DashboardData, field: keyof DashboardData["trend"][0]): number | null {
-  if (data.trend.length < 4) return null;
-  const mid = Math.floor(data.trend.length / 2);
-  const first = data.trend.slice(0, mid).reduce((sum, day) => sum + (Number(day[field]) || 0), 0);
-  const second = data.trend.slice(mid).reduce((sum, day) => sum + (Number(day[field]) || 0), 0);
-  if (!first) return null;
-  return ((second - first) / first) * 100;
+function pct(delta: number): string {
+  return `${delta >= 0 ? "+" : ""}${delta.toFixed(1)}%`;
 }
 
 function KpiCard({ label, value, context }: { label: string; value: string; context: string }) {
@@ -473,6 +538,16 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
       portalFetch<{ reports: Report[] }>("/reports").catch(() => ({ reports: [] })),
     ])
       .then(([dashboard, reportData]) => {
+        // Contractbewaking (W-124, 13 sep): de Hub stuurde een keer een andere
+        // vorm dan deze pagina verwachtte, en TypeScript kon dat niet zien.
+        // Een antwoord met cijfers maar zonder de velden van dit contract is
+        // een storing, geen pagina die het zelf maar moet uitzoeken.
+        if (dashboard?.kpis && (dashboard.verschil === undefined || dashboard.kwaliteit === undefined || !Array.isArray(dashboard.channels))) {
+          console.error("[portal] dashboardcontract klopt niet: ontbrekende velden", Object.keys(dashboard));
+          setLoadFailed(true);
+          toast.error(c.softEventsUnknownContract);
+          return;
+        }
         setData(dashboard);
         setReports(reportData.reports);
       })
@@ -489,12 +564,25 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
   const surface = useMemo(() => {
     if (!data?.kpis) return null;
     const kpis = data.kpis;
-    const costTrend = calcTrend(data, "cost");
-    const clickTrend = calcTrend(data, "clicks");
-    const conversionTrend = calcTrend(data, "conversions");
-    const impressionTrend = calcTrend(data, "impressions");
+    // W-124 fase 1: een percentage alleen als beide perioden volledig gemeten
+    // zijn. Anders vergelijk je een halve periode met een hele en noemt niemand
+    // dat. Bij onvolledige dekking blijven de absolute totalen staan, met de
+    // reden erbij.
+    const mag = data.kwaliteit?.status === "complete" && data.vorigePeriode?.volledig === true;
+    const pctVan = (k: "spend" | "clicks" | "conversions" | "impressions") =>
+      mag ? data.verschil?.[k]?.waarde ?? null : null;
+    const costTrend = pctVan("spend");
+    const clickTrend = pctVan("clicks");
+    const conversionTrend = pctVan("conversions");
+    const impressionTrend = pctVan("impressions");
     const topChannel = [...data.channels].sort((a, b) => b.conversions - a.conversions)[0];
     const spendChannel = [...data.channels].sort((a, b) => b.cost - a.cost)[0];
+    const zachtTotaal = data.channels.reduce((sum, ch) => sum + (ch.zachteGebeurtenissen ?? 0), 0);
+    const zachtPerTypeTotaal = new Map<string, number>();
+    for (const ch of data.channels) {
+      for (const t of ch.zachtPerType ?? []) zachtPerTypeTotaal.set(t.actionType, (zachtPerTypeTotaal.get(t.actionType) ?? 0) + t.aantal);
+    }
+    const zachtBeschrijving = [...zachtPerTypeTotaal.entries()].map(([actionType, aantal]) => ({ actionType, aantal }));
 
     return {
       kpis,
@@ -504,6 +592,9 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
       impressionTrend,
       topChannel,
       spendChannel,
+      vergelijkingMag: mag,
+      zachtTotaal,
+      zachtBeschrijving,
     };
   }, [data]);
 
@@ -603,7 +694,15 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
         <KpiCard label={c.kpiSpend} value={fmtEur(kpis.cost, locale)} context={c.kpiSpendContext(kpis.cpc)} />
         <KpiCard label={c.kpiReach} value={fmtNum(kpis.impressions, locale)} context={c.kpiReachContext} />
         <KpiCard label={c.kpiClicks} value={fmtNum(kpis.clicks, locale)} context={c.kpiClicksContext(kpis.ctr)} />
-        <KpiCard label={c.kpiResults} value={fmtNum(kpis.conversions, locale)} context={c.kpiResultsContext(kpis.cpa)} />
+        <KpiCard
+          label={c.kpiResults}
+          value={fmtNum(kpis.conversions, locale)}
+          context={
+            surface.zachtTotaal > 0
+              ? `${c.kpiResultsContext(kpis.cpa)}, ${c.softEventsNote(beschrijfZacht(surface.zachtBeschrijving, c, locale))}`
+              : c.kpiResultsContext(kpis.cpa)
+          }
+        />
       </section>
 
       {(data.pendingApprovals > 0 || data.pendingBudgets > 0) && (
@@ -636,8 +735,29 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
           <div>
             <h2 className="text-lg font-bold tracking-[-0.01em]">{c.changeTitle}</h2>
             <p className="mt-1 max-w-3xl text-[13px] leading-snug text-muted-foreground">
-              {c.changeIntro}
+              {data.period?.since && data.period?.tot ? `${c.periodLine(data.period.since, data.period.tot)} ` : ""}
+              {surface.vergelijkingMag && data.vorigePeriode
+                ? c.changeIntro(data.vorigePeriode.dagen, data.vorigePeriode.van, data.vorigePeriode.tot)
+                : c.changeNoCompare}
             </p>
+            {/* Wat er niet volledig is, staat er met de reden bij (D-046). Geen rood vlak. */}
+            {data.kwaliteit && data.kwaliteit.status !== "complete" && (
+              <p className="mt-1 max-w-3xl text-[13px] leading-snug text-muted-foreground">
+                {[
+                  data.kwaliteit.ontbrekendeDagen > 0 ? c.coverageMissingDays(data.kwaliteit.ontbrekendeDagen) : null,
+                  data.kwaliteit.redenen.includes("STALE_DATA") && data.kwaliteit.laatsteDatum ? c.coverageStale(data.kwaliteit.laatsteDatum) : null,
+                  data.kwaliteit.redenen.includes("PLATFORM_MISSING") ? c.coveragePlatformMissing : null,
+                ].filter(Boolean).join(" ")}
+              </p>
+            )}
+            {typeof data.dagenSindsLaatsteMeting === "number" && data.dagenSindsLaatsteMeting >= 2 && data.dataTot && (
+              <p className="mt-1 max-w-3xl text-[13px] font-semibold leading-snug text-foreground">
+                {c.staleData(data.dagenSindsLaatsteMeting, data.dataTot)}
+              </p>
+            )}
+            {data.kwaliteit?.status === "complete" && data.vorigePeriode && !data.vorigePeriode.volledig && (
+              <p className="mt-1 max-w-3xl text-[13px] leading-snug text-muted-foreground">{c.coveragePreviousIncomplete}</p>
+            )}
           </div>
         </div>
 
@@ -694,7 +814,14 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
                   .sort((a, b) => b.cost - a.cost)
                   .map((ch) => (
                     <tr key={ch.source} className="border-b border-border-subtle last:border-0">
-                      <td className="py-2.5 pr-4 font-semibold text-foreground">{ch.label}</td>
+                      <td className="py-2.5 pr-4 font-semibold text-foreground">
+                        {ch.label}
+                        {typeof ch.zachteGebeurtenissen === "number" && ch.zachteGebeurtenissen > 0 && ch.zachtPerType && (
+                          <span className="mt-0.5 block text-[12px] font-normal text-muted-foreground">
+                            {c.softEventsRow(ch.label, ch.conversions.toLocaleString(locale), beschrijfZacht(ch.zachtPerType, c, locale))}
+                          </span>
+                        )}
+                      </td>
                       <td className="py-2.5 pr-4 text-right text-foreground">{fmtEur(ch.cost, locale)}</td>
                       <td className="py-2.5 pr-4 text-right text-muted-foreground">{fmtNum(ch.impressions, locale)}</td>
                       <td className="py-2.5 pr-4 text-right text-muted-foreground">{fmtNum(ch.clicks, locale)}</td>
@@ -710,26 +837,10 @@ function DashboardContent({ clientName, clientSlug }: { clientName: string; clie
         </section>
       )}
 
-      <section className="rounded-2xl border border-border bg-card px-6 py-5 shadow-[0_12px_32px_rgba(31,41,51,0.05)]">
-        <div className="mb-4 flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-          <div>
-            <h2 className="text-lg font-bold tracking-[-0.01em]">{c.alertsTitle}</h2>
-            <p className="mt-1 text-[13px] text-muted-foreground">{c.alertsIntro}</p>
-          </div>
-          <Link href="/dashboard/chat" className="text-[13px] font-semibold text-accent">{c.askStevin}</Link>
-        </div>
-
-        <div className="grid gap-3">
-          <DecisionCard
-            index="01"
-            title={c.alertTitle}
-            meta={c.alertMeta(period)}
-            why={c.alertWhy}
-            href="/dashboard/campaigns"
-            cta={c.campaigns}
-          />
-        </div>
-      </section>
+      {/* W-124 fase 1: hier stond een vaste "melding" ("Resultaten bewegen sterker
+          dan investering") die bij elke klant en elke periode verscheen, zonder
+          enige berekening erachter. Een signaal dat ook zonder aanleiding vuurt is
+          geen signaal (D-048). Weg, tot er een echte bron voor is. */}
 
       {reports.length > 0 && (
         <section className="rounded-2xl border border-border bg-card px-6 py-5 shadow-[0_12px_32px_rgba(31,41,51,0.05)]">

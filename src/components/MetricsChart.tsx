@@ -22,22 +22,55 @@ export interface MonthPoint {
   cpa: number | null;
 }
 
+// De titel zegt wat er geteld wordt (Astra, 13 sep): dit zijn de resultaten
+// zoals het platform ze telt, en bij een klant waar een paginabezoek meetelt
+// staat dat erbij. Anders leest een klant 2.237 in juli als 2.237 aanvragen.
 const COPY = {
   nl: {
-    titelMaand: "Resultaten per maand",
-    titelWeek: "Resultaten per week",
+    titelMaand: "Resultaten per maand, zoals het platform ze telt",
+    titelWeek: "Resultaten per week, zoals het platform ze telt",
     ditJaar: "dit jaar",
     vorigJaar: "zelfde maand vorig jaar",
     leeg: "Nog geen cijfers.",
+    teltMee: (platform: string, namen: string) => `${platform} telt ook ${namen} mee; dat zijn geen aanvragen.`,
+    eventNames: {
+      landing_page_view: "paginabezoeken",
+      page_view: "paginaweergaven",
+      link_click: "klikken",
+      outbound_click: "klikken naar buiten",
+      view_content: "bekeken pagina's",
+      post_engagement: "interacties met een bericht",
+      page_engagement: "interacties met de pagina",
+      video_view: "videoweergaven",
+    } as Record<string, string>,
+    platformNames: { meta: "Meta", google_ads: "Google Ads", dv360: "Programmatic", tiktok: "TikTok", linkedin: "LinkedIn" } as Record<string, string>,
   },
   en: {
-    titelMaand: "Results per month",
-    titelWeek: "Results per week",
+    titelMaand: "Results per month, as counted by the platform",
+    titelWeek: "Results per week, as counted by the platform",
     ditJaar: "this year",
     vorigJaar: "same month last year",
     leeg: "No data yet.",
+    teltMee: (platform: string, namen: string) => `${platform} also counts ${namen}; those are not enquiries.`,
+    eventNames: {
+      landing_page_view: "page views",
+      page_view: "page views",
+      link_click: "clicks",
+      outbound_click: "outbound clicks",
+      view_content: "content views",
+      post_engagement: "post interactions",
+      page_engagement: "page interactions",
+      video_view: "video views",
+    } as Record<string, string>,
+    platformNames: { meta: "Meta", google_ads: "Google Ads", dv360: "Programmatic", tiktok: "TikTok", linkedin: "LinkedIn" } as Record<string, string>,
   },
 } as const;
+
+/** Wat het platform als conversie meetelt; komt uit /chat/series (telling). */
+export interface Telling {
+  zachtPerPlatform: Record<string, string[]>;
+  bevatZacht: boolean;
+}
 
 export default function MetricsChart({
   months,
@@ -45,6 +78,7 @@ export default function MetricsChart({
   lang,
   maanden = 12,
   eenheid = "maand",
+  telling,
 }: {
   months: MonthPoint[];
   weeks?: MonthPoint[];
@@ -52,8 +86,16 @@ export default function MetricsChart({
   maanden?: number;
   /** Vroeg de klant naar een week, dan hoort er een weekgrafiek te staan. */
   eenheid?: "maand" | "week";
+  telling?: Telling | null;
 }) {
   const t = COPY[lang];
+  // Een regel per platform dat een zachte gebeurtenis meetelt, IN de SVG zodat
+  // hij de PDF-export overleeft.
+  const tellingRegels = telling?.bevatZacht
+    ? Object.entries(telling.zachtPerPlatform).map(([platform, namen]) =>
+        t.teltMee(t.platformNames[platform] ?? platform, namen.map((n) => t.eventNames[n] ?? n).join(lang === "en" ? " and " : " en ")),
+      )
+    : [];
   const perWeek = eenheid === "week" && weeks && weeks.length > 0;
   const titel = perWeek ? t.titelWeek : t.titelMaand;
   const reeks = perWeek ? weeks : months;
@@ -62,7 +104,14 @@ export default function MetricsChart({
   // Een klant die net begonnen is heeft geen vorig jaar. Dan geen lege lichte
   // staven en geen legenda die naar niets verwijst: gewoon de maanden die er zijn.
   const eersteMetData = reeks.findIndex((m) => m.conversions > 0 || m.cost > 0);
-  const gevuld = eersteMetData === -1 ? reeks : reeks.slice(eersteMetData);
+  // W-124 fase 1, bevinding 2A.4: eersteMetData is ook -1 als GEEN ENKELE
+  // maand ooit iets heeft opgeleverd, en dat werd hier gelezen als "geen
+  // vorig jaar, toon dan gewoon alles". Voor een gloednieuwe klant is "alles"
+  // een reeks platte nulstaven, precies het beeld dat REGEL #3 verbiedt: oude
+  // of afwezige data die als een actueel nulresultaat wordt getoond. Nu:
+  // helemaal geen data ooit gemeten is de lege staat, geen grafiek.
+  if (eersteMetData === -1) return <p className="text-xs text-muted-foreground">{t.leeg}</p>;
+  const gevuld = reeks.slice(eersteMetData);
   const data = gevuld.slice(perWeek ? -10 : -maanden).map((m) => {
     // Jaar-op-jaar heeft alleen betekenis per maand; per week schuiven de dagen.
     if (perWeek) return { ...m, vorigJaar: null as number | null };
@@ -77,7 +126,7 @@ export default function MetricsChart({
   const H = 210;
   const padL = 8;
   const padR = 8;
-  const padT = 30;
+  const padT = 30 + tellingRegels.length * 12;
   const padB = 26;
   const innerW = W - padL - padR;
   const innerH = H - padT - padB;
@@ -93,6 +142,11 @@ export default function MetricsChart({
         <text x={padL} y={12} fontSize="11" fontWeight="600" fill="#1f2933">
           {titel}
         </text>
+        {tellingRegels.map((regel, i) => (
+          <text key={regel} x={padL} y={40 + i * 12} fontSize="9" fill="#64748b">
+            {regel}
+          </text>
+        ))}
         {/* Legenda in de SVG, zodat hij de export naar PDF overleeft. */}
         {toonVorigJaar && (
           <>

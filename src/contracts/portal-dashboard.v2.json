@@ -1,0 +1,87 @@
+{
+  "kpis": {
+    "impressions": 264288,
+    "clicks": 4429,
+    "cost": 3182.39,
+    "conversions": 1352,
+    "ctr": "1.7",
+    "cpc": "0.72",
+    "cpa": "2.35"
+  },
+  "channels": [
+    {
+      "source": "meta",
+      "label": "Meta (Facebook & Instagram)",
+      "impressions": 256900,
+      "clicks": 3964,
+      "cost": 1999.68,
+      "conversions": 1341,
+      "ctr": "1.5",
+      "cpc": "0.50",
+      "zachteGebeurtenissen": 1196,
+      "zachtPerType": [
+        {
+          "actionType": "landing_page_view",
+          "aantal": 1180
+        },
+        {
+          "actionType": "link_click",
+          "aantal": 16
+        }
+      ]
+    },
+    {
+      "source": "google_ads",
+      "label": "Google Ads (Zoeken & Display)",
+      "impressions": 7388,
+      "clicks": 465,
+      "cost": 1182.71,
+      "conversions": 11,
+      "ctr": "6.3",
+      "cpc": "2.54",
+      "zachteGebeurtenissen": null,
+      "zachtPerType": null
+    }
+  ],
+  "verschil": {
+    "spend": {
+      "waarde": -13.7,
+      "weergave": "-13,7%"
+    },
+    "clicks": {
+      "waarde": -6.3,
+      "weergave": "-6,3%"
+    },
+    "conversions": {
+      "waarde": -33.9,
+      "weergave": "-33,9%"
+    },
+    "impressions": {
+      "waarde": -5.9,
+      "weergave": "-5,9%"
+    }
+  },
+  "vorigePeriode": {
+    "van": "2026-07-15",
+    "tot": "2026-08-13",
+    "dagen": 30,
+    "volledig": true
+  },
+  "kwaliteit": {
+    "status": "complete",
+    "redenen": [],
+    "ontbrekendeDagen": 0,
+    "dagenAchter": 0,
+    "laatsteDatum": "2026-09-12"
+  },
+  "dataTot": "2026-09-12",
+  "dagenSindsLaatsteMeting": 1,
+  "pendingApprovals": 0,
+  "pendingBudgets": 0,
+  "period": {
+    "days": 30,
+    "since": "2026-08-14",
+    "tot": "2026-09-12",
+    "truncated": false
+  }
+}

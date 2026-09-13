@@ -1,4 +1,8 @@
-@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+/* W-124 fase 1, bevinding 2.9: JetBrains Mono komt al self-hosted binnen via
+   next/font/google in layout.tsx (--font-jetbrains-mono). Deze regel deed
+   dezelfde font nog een keer ophalen via een live fetch naar
+   fonts.googleapis.com, en dat domein staat niet op de CSP-allowlist: elke
+   sessie gaf negentien geblokkeerde-request-fouten voor niets. */
 @import "tailwindcss";
 
 /* ═══════════════════════════════════════════════════════════
