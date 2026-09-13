@@ -25,9 +25,14 @@ export function proxy(request: NextRequest) {
   response.headers.set("X-XSS-Protection", "1; mode=block");
   response.headers.set("Referrer-Policy", "no-referrer");
   response.headers.set("Cache-Control", "no-store, no-cache, must-revalidate, max-age=0");
+  // Lokaal ontwikkelen tegen een Hub op localhost:3001 (de poort van bot.ts).
+  // In productie blijft connect-src ongewijzigd; dit voegt alleen in
+  // development een localhost-bron toe, anders blokkeert de browser elke
+  // API-aanroep zodra NEXT_PUBLIC_API_URL naar localhost wijst.
+  const lokaleHub = process.env.NODE_ENV === "development" ? " http://localhost:3001" : "";
   response.headers.set(
     "Content-Security-Policy",
-    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' https:; connect-src 'self' https://hub.stevin.ai https://*.supabase.co https://accounts.google.com;",
+    `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' https:; connect-src 'self' https://hub.stevin.ai https://*.supabase.co https://accounts.google.com${lokaleHub};`,
   );
 
   return response;

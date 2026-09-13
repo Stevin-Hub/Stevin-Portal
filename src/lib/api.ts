@@ -69,6 +69,8 @@ export type PortalErrorCode =
   | "magic_link_failed"
   | "message_required"
   | "notifications_load_failed"
+  | "one_click_scope_denied"
+  | "impersonation_read_only"
   | "oauth_not_configured"
   | "oauth_start_failed"
   | "owner_only_confirm"
@@ -353,6 +355,16 @@ const ERROR_COPY: Record<PortalErrorCode, { nl: string; en: string }> = {
   session_expired: {
     nl: "Sessie verlopen. Log opnieuw in.",
     en: "Session expired. Please log in again.",
+  },
+  // W-124 fase 1: een link uit een goedkeuringsmail geeft alleen toegang tot
+  // die ene goedkeuring. Wie via zo'n link verder klikt, leest waarom dat niet kan.
+  one_click_scope_denied: {
+    nl: "Deze link geeft alleen toegang tot de goedkeuring waarvoor hij is gestuurd. Log in om de rest van je portaal te zien.",
+    en: "This link only gives access to the approval it was sent for. Log in to see the rest of your portal.",
+  },
+  impersonation_read_only: {
+    nl: "Meekijken is alleen lezen. Deze actie kan niet vanuit een meekijksessie.",
+    en: "Viewing as the client is read-only. This action is not available from a view-as session.",
   },
 };
 
