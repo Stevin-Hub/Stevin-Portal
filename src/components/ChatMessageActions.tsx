@@ -158,7 +158,7 @@ export default function ChatMessageActions({
       .map((g) =>
         t.countingNote(
           PLATFORM_NAMES[g.platform] ?? g.platform,
-          (g.zachtPerType || []).map((x) => `${x.aantal} ${EVENT_NAMES[lang][x.actionType] ?? x.actionType}`).join(lang === "en" ? " and " : " en "),
+          (g.zachtPerType || []).map((x) => `${x.aantal.toLocaleString(lang === "en" ? "en-GB" : "nl-NL")} ${EVENT_NAMES[lang][x.actionType] ?? x.actionType}`).join(lang === "en" ? " and " : " en "),
         ),
       );
     if (snapshot && snapshot.ontbrekendeGegevens.ontbrekendeDagen > 0) {
