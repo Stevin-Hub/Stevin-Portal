@@ -19,7 +19,7 @@ import {
   Plug,
   Clapperboard,
 } from "lucide-react";
-import TermsModal from "@/components/TermsModal";
+import ClickwrapGate from "@/components/ClickwrapGate";
 import { portalFetch } from "@/lib/api";
 import { useLanguage, useLanguageReady, type Lang } from "@/lib/useLanguage";
 
@@ -80,6 +80,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const [isCreator, setIsCreator] = useState(false);
   const [impersonating, setImpersonating] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [canSign, setCanSign] = useState(true);
   // Rol van de ingelogde klantgebruiker: admin (eigenaar), medewerker of
   // stagiair. Bron is /me, want getUser() geeft bij de Google-login
   // "authenticated" terug en dat is geen portaalrol.
@@ -138,10 +139,18 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         setRole(user?.role ?? null);
       });
 
-    // Check terms acceptance (skip for impersonation)
+    // Acceptatiestand uit het register (W-124). Bij impersonatie overslaan.
+    // canSign is false bij het oude portal-token: dan vraagt de gate om opnieuw
+    // in te loggen in plaats van een vinkje aan te bieden dat niet vastgelegd
+    // kan worden.
     if (user && !isImpersonating()) {
-      portalFetch<{ accepted: boolean }>("/terms/status")
-        .then((data) => { if (!data.accepted) setShowTerms(true); })
+      portalFetch<{ accepted: boolean; canSign?: boolean }>("/terms/status")
+        .then((data) => {
+          if (!data.accepted) {
+            setCanSign(data.canSign !== false);
+            setShowTerms(true);
+          }
+        })
         .catch(() => {});
     }
   }, [router]);
@@ -316,7 +325,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </div>
 
       {/* Terms acceptance modal, blocks usage until accepted */}
-      {showTerms && <TermsModal onAccepted={() => setShowTerms(false)} />}
+      {showTerms && <ClickwrapGate canSign={canSign} onAccepted={() => setShowTerms(false)} />}
       <FeedbackWidget />
     </div>
   );
