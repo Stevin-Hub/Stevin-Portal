@@ -85,6 +85,14 @@ interface Copy {
   greeting: (name: string) => string;
   intro: string;
   suggestions: string[];
+  presetsTitel: string;
+  presetsBewerk: string;
+  presetsOpslaan: string;
+  presetsAnnuleer: string;
+  presetsUitleg: string;
+  presetsFout: string;
+  presetsOpgeslagen: string;
+  presetsPlaceholder: string;
   limitBannerTitle: string;
   limitBannerBody: string;
   limitMessage: string;
@@ -106,6 +114,14 @@ const COPY: Record<Lang, Copy> = {
       "Wat zijn mijn resultaten deze maand?",
       "Waar gaat het meeste budget naartoe?",
     ],
+    presetsTitel: "Snelle vragen",
+    presetsBewerk: "Vragen aanpassen",
+    presetsOpslaan: "Opslaan",
+    presetsAnnuleer: "Annuleren",
+    presetsUitleg: "Maximaal vier vragen, elk maximaal 120 tekens. Iedereen van jullie bedrijf ziet dezelfde vragen.",
+    presetsFout: "Opslaan lukte niet. Er is niets veranderd.",
+    presetsOpgeslagen: "Vragen opgeslagen.",
+    presetsPlaceholder: "Bijvoorbeeld: Hoeveel telefoontjes kwamen er deze maand?",
     limitBannerTitle: "Je analyses voor deze maand zijn op",
     limitBannerBody: "Neem contact op met je consultant voor extra tokens.",
     limitMessage:
@@ -126,6 +142,14 @@ const COPY: Record<Lang, Copy> = {
       "What are my results this month?",
       "Where does most of the budget go?",
     ],
+    presetsTitel: "Quick questions",
+    presetsBewerk: "Edit questions",
+    presetsOpslaan: "Save",
+    presetsAnnuleer: "Cancel",
+    presetsUitleg: "Up to four questions, each up to 120 characters. Everyone in your company sees the same questions.",
+    presetsFout: "Saving failed. Nothing was changed.",
+    presetsOpgeslagen: "Questions saved.",
+    presetsPlaceholder: "For example: How many calls came in this month?",
     limitBannerTitle: "Your analyses for this month are used up",
     limitBannerBody: "Contact your consultant for extra tokens.",
     limitMessage:
@@ -181,6 +205,14 @@ function ChatContent({ userName }: { userName: string }) {
   // Per antwoord de opgemaakte HTML, zodat de PDF-knop exact exporteert wat de
   // klant ziet in plaats van de markdown opnieuw te renderen.
   const bubbleRefs = useRef<Record<number, HTMLDivElement | null>>({});
+  // W-132: standaardvragen per klant, uit de Hub. Zonder eigen vragen geeft de
+  // Hub de Stevin-set in de taal van de klant; de rolregel (stagiair en
+  // meekijken niet) komt ook van de Hub, het scherm volgt alleen.
+  const [presets, setPresets] = useState<string[]>([]);
+  const [magPresetsBewerken, setMagPresetsBewerken] = useState(false);
+  const [presetsBewerken, setPresetsBewerken] = useState(false);
+  const [presetsConcept, setPresetsConcept] = useState<string[]>([]);
+  const [presetsBezig, setPresetsBezig] = useState(false);
 
   /**
    * Draait de Hub nog de oude rekenlaag? Een antwoord van de nieuwe context
@@ -202,6 +234,12 @@ function ChatContent({ userName }: { userName: string }) {
   }, []);
 
   useEffect(() => {
+    portalFetch<{ vragen: string[]; magBewerken: boolean }>("/chat/presets")
+      .then((p) => { setPresets(p.vragen); setMagPresetsBewerken(!!p.magBewerken); })
+      .catch(() => { /* zonder standaardvragen werkt de chat gewoon; de knoppenrij blijft dan leeg */ });
+  }, []);
+
+  useEffect(() => {
     portalFetch<{ messages: Message[] }>("/chat?limit=50")
       .then((data) => setMessages(data.messages))
       .catch(() => toast.error(copyRef.current.historyError))
@@ -217,7 +255,11 @@ function ChatContent({ userName }: { userName: string }) {
 
   async function handleSend(e: React.FormEvent) {
     e.preventDefault();
-    const text = input.trim();
+    await verstuur(input);
+  }
+
+  async function verstuur(ruw: string) {
+    const text = ruw.trim();
     if (!text || sending || limitReached) return;
 
     setInput("");
@@ -252,6 +294,22 @@ function ChatContent({ userName }: { userName: string }) {
       }
     } finally {
       setSending(false);
+    }
+  }
+
+  async function slaPresetsOp() {
+    const schoon = presetsConcept.map((v) => v.replace(/\s+/g, " ").trim()).filter((v) => v.length > 0);
+    if (schoon.length === 0 || presetsBezig) return;
+    setPresetsBezig(true);
+    try {
+      const r = await portalFetch<{ vragen: string[] }>("/chat/presets", { method: "PUT", body: JSON.stringify({ vragen: schoon }) });
+      setPresets(r.vragen);
+      setPresetsBewerken(false);
+      toast.success(c.presetsOpgeslagen);
+    } catch {
+      toast.error(c.presetsFout);
+    } finally {
+      setPresetsBezig(false);
     }
   }
 
@@ -328,10 +386,10 @@ function ChatContent({ userName }: { userName: string }) {
             <h3 className="font-medium mb-1">{c.greeting(userName)}</h3>
             <p className="text-sm text-muted-foreground max-w-sm mx-auto">{c.intro}</p>
             <div className="flex flex-wrap gap-2 justify-center mt-4">
-              {c.suggestions.map((q) => (
+              {(presets.length > 0 ? presets : c.suggestions).map((q) => (
                 <button
                   key={q}
-                  onClick={() => { setInput(q); }}
+                  onClick={() => { void verstuur(q); }}
                   className="text-xs bg-card-hover border border-border px-3 py-1.5 rounded-full text-muted-foreground hover:text-foreground transition"
                 >
                   {q}
@@ -444,6 +502,55 @@ function ChatContent({ userName }: { userName: string }) {
       )}
 
       {/* Input */}
+      {/* W-132: snelle vragen, altijd boven de invoer; aanpassen alleen voor wie dat mag */}
+      {!loading && presets.length > 0 && (
+        <div className="mb-2">
+          {presetsBewerken ? (
+            <div className="rounded-xl border border-border bg-card p-3 space-y-2">
+              <p className="text-xs text-muted-foreground">{c.presetsUitleg}</p>
+              {[0, 1, 2, 3].map((i) => (
+                <input
+                  key={i}
+                  type="text"
+                  maxLength={120}
+                  value={presetsConcept[i] ?? ""}
+                  placeholder={c.presetsPlaceholder}
+                  onChange={(e) => setPresetsConcept((prev) => { const n = [...prev]; n[i] = e.target.value; return n; })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-1.5 text-sm"
+                />
+              ))}
+              <div className="flex gap-2 pt-1">
+                <button type="button" onClick={() => { void slaPresetsOp(); }} disabled={presetsBezig} className="rounded-lg bg-accent px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">{c.presetsOpslaan}</button>
+                <button type="button" onClick={() => setPresetsBewerken(false)} className="rounded-lg border border-border px-3 py-1.5 text-xs">{c.presetsAnnuleer}</button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-wrap items-center gap-2">
+              {presets.map((q) => (
+                <button
+                  key={q}
+                  type="button"
+                  disabled={sending || limitReached}
+                  onClick={() => { void verstuur(q); }}
+                  className="text-xs bg-card border border-border px-3 py-1.5 rounded-full text-muted-foreground hover:text-foreground hover:border-accent/40 transition disabled:opacity-50"
+                >
+                  {q}
+                </button>
+              ))}
+              {magPresetsBewerken && (
+                <button
+                  type="button"
+                  onClick={() => { setPresetsConcept([...presets]); setPresetsBewerken(true); }}
+                  className="text-xs text-muted-foreground hover:text-foreground underline-offset-2 hover:underline"
+                >
+                  {c.presetsBewerk}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       <form onSubmit={handleSend} className="flex gap-2">
         <input
           value={input}
