@@ -20,6 +20,7 @@ import {
 import ClickwrapGate from "@/components/ClickwrapGate";
 import { portalFetch } from "@/lib/api";
 import { useLanguage, useLanguageReady, type Lang } from "@/lib/useLanguage";
+import { clarityProjectId, startClarity, grantClarityConsent } from "@/lib/clarity";
 
 /**
  * De schil van het portaal, in de vorm van Stevin Desk (W-124, fase 3).
@@ -276,12 +277,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     // in te loggen in plaats van een vinkje aan te bieden dat niet vastgelegd
     // kan worden.
     if (user && !isImpersonating()) {
-      portalFetch<{ accepted: boolean; canSign?: boolean }>("/terms/status")
+      portalFetch<{ accepted: boolean; canSign?: boolean; analyticsConsent?: boolean }>("/terms/status")
         .then((data) => {
           if (!data.accepted) {
             setCanSign(data.canSign !== false);
             setShowTerms(true);
           }
+          // W-128: gebruiksmeting alleen met een vastgelegde toestemming, en
+          // nooit bij meekijken. Zonder toestemming wordt het script niet
+          // eens geladen; Clarity's eigen consent-stand regelt alleen cookies.
+          if (data.analyticsConsent) startMeting();
         })
         .catch(() => {});
     }
@@ -303,6 +308,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   function handleLogout() {
     clearAuth();
     router.replace("/login");
+  }
+
+  function startMeting() {
+    const id = clarityProjectId();
+    if (!id || isImpersonating()) return;
+    if (startClarity(id)) grantClarityConsent();
   }
 
   // De schermen houden hun eigen spinner aan tot de taal bekend is. Doet de
@@ -562,7 +573,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </div>
 
         {/* Klant */}
-        <div className="psh-acct" style={{ minWidth: 0, paddingLeft: 4 }}>
+        <div className="psh-acct" data-clarity-mask="True" style={{ minWidth: 0, paddingLeft: 4 }}>
           <span style={{ display: "block", color: TOKENS.muted2, fontSize: 12, fontWeight: 600 }}>
             {viaBureau ? c.viaAgency : c.platform}
           </span>
@@ -586,7 +597,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="psh-spacer" aria-hidden="true" />
 
         {/* Acties: versheid en account */}
-        <div className="psh-actions" style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }} ref={userMenuRef}>
+        <div className="psh-actions" data-clarity-mask="True" style={{ display: "flex", alignItems: "center", gap: 10, position: "relative" }} ref={userMenuRef}>
           <span className="psh-sync" style={{ display: "inline-flex" }}>
             <VersheidPill v={versheid} c={c} lang={lang} />
           </span>
@@ -684,13 +695,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* Inhoud */}
       <div className="psh-content" style={{ marginLeft: RAIL, paddingTop: TOPBAR + bannerHoogte, minWidth: 0 }}>
-        <main className="psh-main" style={{ width: "min(100%, 1640px)", margin: "0 auto", padding: "20px 28px 36px", minWidth: 0 }}>
+        {/* data-clarity-mask: klantnamen, cijfers, chat en tabellen gaan nooit naar Clarity, ook niet als de projectinstelling ooit versoepelt (W-128). */}
+        <main className="psh-main" data-clarity-mask="True" style={{ width: "min(100%, 1640px)", margin: "0 auto", padding: "20px 28px 36px", minWidth: 0 }}>
           {children}
         </main>
       </div>
 
       {/* Terms acceptance modal, blocks usage until accepted */}
-      {showTerms && <ClickwrapGate canSign={canSign} onAccepted={() => setShowTerms(false)} />}
+      {showTerms && (
+        <ClickwrapGate
+          canSign={canSign}
+          onAccepted={(r) => {
+            setShowTerms(false);
+            if (r.analyticsConsent) startMeting();
+          }}
+        />
+      )}
       <FeedbackWidget />
     </div>
   );
