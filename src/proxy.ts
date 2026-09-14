@@ -32,7 +32,7 @@ export function proxy(request: NextRequest) {
   const lokaleHub = process.env.NODE_ENV === "development" ? " http://localhost:3001" : "";
   response.headers.set(
     "Content-Security-Policy",
-    `default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' https:; connect-src 'self' https://hub.stevin.ai https://*.supabase.co https://accounts.google.com${lokaleHub};`,
+    `default-src 'self'; script-src 'self' 'unsafe-inline' https://www.clarity.ms https://scripts.clarity.ms; style-src 'self' 'unsafe-inline'; img-src 'self' https: data:; font-src 'self' https:; connect-src 'self' https://hub.stevin.ai https://*.supabase.co https://accounts.google.com https://www.clarity.ms https://*.clarity.ms${lokaleHub};`,
   );
 
   return response;
